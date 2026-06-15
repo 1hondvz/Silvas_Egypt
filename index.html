@@ -89,6 +89,7 @@
     <button id="adminToggleBtn" style="display:none" onclick="openPanel('main')">🛡️ الإدارة</button>
   </div>
   <div id="chat"></div>
+  <div id="typingIndicator" style="padding:4px 12px;font-size:11px;color:#a29bfe;font-style:italic;min-height:20px;flex-shrink:0;"></div>
   <form id="form">
     <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off">
     <button type="submit">إرسال</button>
@@ -105,6 +106,10 @@
         <img id="profileAvatar" src="" alt="avatar">
         <div class="online-dot" id="profileOnlineDot"></div>
       </div>
+      <label id="uploadAvatarBtn" style="display:none; cursor:pointer; background:rgba(108,92,231,0.3); border:1px solid #6c5ce7; color:#a29bfe; padding:4px 10px; border-radius:20px; font-size:11px; margin-bottom:8px;">
+        📷 تغيير الصورة
+        <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="uploadProfilePicture(event)">
+      </label>
       <div class="profile-name" id="profileNameEl"></div>
       <div class="profile-bio" id="profileBioEl"></div>
       <div class="profile-stats">
@@ -154,31 +159,6 @@
       <button class="rp-close-btn" onclick="closeRoomPlayers()">✖</button>
     </div>
     <div id="roomPlayersList"></div>
-  </div>
-</div>
-
-<!-- COLOR PICKER -->
-<div id="colorPickerOverlay" onclick="cpOverlayClick(event)">
-  <div id="colorPickerPanel">
-    <h3>🎨 اختار لون اسمك</h3>
-    <p>اختار اللون اللي يعجبك في الشات</p>
-    <div class="cp-badge-info">
-      <img class="cp-badge-img" id="cpBadgeImg" src="" alt="">
-      <div class="cp-badge-name" id="cpBadgeName"></div>
-    </div>
-    <div class="cp-preview-row">
-      <span style="color:#aaa;font-size:12px;">معاينة:</span>
-      <span class="cp-preview-name" id="cpPreviewName"></span>
-    </div>
-    <div class="cp-presets" id="cpPresets"></div>
-    <div class="cp-custom-row">
-      <label>لون مخصص:</label>
-      <input type="color" id="cpCustomInput" value="#ffffff">
-    </div>
-    <div class="cp-btns">
-      <button id="cpCancelBtn" onclick="closeColorPicker()">إلغاء</button>
-      <button id="cpSaveBtn" onclick="saveNameColor()">حفظ ✓</button>
-    </div>
   </div>
 </div>
 

@@ -53,6 +53,9 @@ let currentShopCat="",previewFigure="";
 let currentRoomId="",currentRoomData=null;
 let pendingRoomId="",pendingRoomData=null;
 let viewingUID=""; // البروفايل اللي بيتشاف دلوقتي
+let typingTimeout = null;
+let lastMsgTime = 0;
+let playerCustomAvatar = null;
 
 function getRole(){return playerRole||"Normal";}
 function canGiveRole(){return["Owner","ادمن"].includes(getRole());}
@@ -186,10 +189,12 @@ function enterRoom(roomId,roomData){
   document.getElementById("currentRoomName").textContent=roomData.name;
   updateUI();updateRoleButtons();
   document.getElementById("roomSettingsBtn").style.display=(roomData.owner===playerUID||canGiveRole())?"inline-block":"none";
-  loadRoomChat(roomId);listenChatClear(roomId);addSystemMessage("دخلت غرفة: "+roomData.name);
+  loadRoomChat(roomId);listenChatClear(roomId);listenTyping(roomId);addSystemMessage("دخلت غرفة: "+roomData.name);
   incStat("roomEnterCount", v => checkAndUnlockAch("roomEnterCount", v));
 }
 function goToLobby(){
+  stopTyping();
+  db.ref("rooms/"+currentRoomId+"/typing").off();
   db.ref("rooms/"+currentRoomId+"/chat").off();
   db.ref("rooms/"+currentRoomId+"/cleared").off();
   chat.innerHTML="";currentRoomId="";currentRoomData=null;
@@ -236,7 +241,7 @@ function openProfile(uid){
     const data=snap.val();
     const fig=data.figure||(data.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
     // صورة
-    document.getElementById("profileAvatar").src=getFullAvatarUrl(fig,data.gender||"male");
+    document.getElementById("profileAvatar").src = data.customAvatar || getFullAvatarUrl(fig,data.gender||"male");
     // أونلاين
     document.getElementById("profileOnlineDot").style.background=data.online?"#2ecc71":"#636e72";
     // اسم
@@ -251,6 +256,8 @@ function openProfile(uid){
     document.getElementById("profileLikes").textContent=likesCount;
     // زرار تعديل Bio لو بروفايله هو
     document.getElementById("profileEditBtn").style.display=uid===playerUID?"inline-block":"none";
+    const uploadBtn = document.getElementById("uploadAvatarBtn");
+    if(uploadBtn) uploadBtn.style.display = uid===playerUID ? "inline-block" : "none";
     // بطاقات الرول (يمين)
     const sideEl=document.getElementById("profileBadgesSide");sideEl.innerHTML="";
     const role=data.role||"Normal";
@@ -283,24 +290,7 @@ function openProfile(uid){
       blockBtn.textContent=isBlocked?"🔓 إلغاء الحظر":"🚫 حظر";
       blockBtn.onclick=()=>toggleBlock(uid,data.name);actionsEl.appendChild(blockBtn);
     } else {
-      // زرار اختيار لون الاسم لو عنده بطاقة
-      const myGranted=data.grantedBadges||{};
-      const hasBadge=Object.keys(myGranted).length>0;
-      if(hasBadge){
-        // اعرض زرار لكل بطاقة
-        const colorRow=document.createElement("div");
-        colorRow.style.cssText="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;";
-        GRANTABLE_BADGES.forEach(b=>{
-          if(!myGranted[b.id]) return;
-          const btn=document.createElement("button");
-          btn.className="profile-admin-btn";
-          btn.style.cssText="border-color:"+b.chatColor+";color:"+b.chatColor+";";
-          btn.textContent="🎨 لون "+b.name;
-          btn.onclick=()=>openColorPicker(b.id);
-          colorRow.appendChild(btn);
-        });
-        actionsEl.appendChild(colorRow);
-      }
+      // no color picker - badges use fixed colors
     }
     // أزرار الأدمن
     const adminActEl=document.getElementById("profileAdminActions");adminActEl.innerHTML="";
@@ -352,6 +342,36 @@ function editBio(){
   db.ref("players/"+playerUID).update({bio:trimmed});
   document.getElementById("profileBioEl").textContent=trimmed?`"${trimmed}"`:"لا يوجد bio";
   toast("✅ تم تحديث Bio!","#28a745");
+}
+
+// ====== PROFILE PICTURE UPLOAD ======
+const IMGBB_KEY = "6ed0a5a9d1c53ed850ce30b14b719b65";
+
+function uploadProfilePicture(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024) { toast("الصورة كبيرة جداً! الحد الأقصى 5MB","#dc3545"); return; }
+  toast("⏳ جاري رفع الصورة...","#6c5ce7");
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const formData = new FormData();
+    formData.append('image', base64);
+    fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, { method:'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if(data.success) {
+          const url = data.data.url;
+          db.ref("players/"+playerUID).update({ customAvatar: url });
+          document.getElementById("profileAvatar").src = url;
+          toast("✅ تم تحديث الصورة!","#28a745");
+        } else {
+          toast("فشل رفع الصورة","#dc3545");
+        }
+      })
+      .catch(() => toast("خطأ في الاتصال","#dc3545"));
+  };
+  reader.readAsDataURL(file);
 }
 
 // لايك
@@ -432,6 +452,7 @@ function listenToMyData(){
     if(data.bio!==undefined) playerBio=data.bio;
     if(data.grantedBadges) playerGrantedBadges=data.grantedBadges;
     if(data.nameColor!==undefined) playerNameColor=data.nameColor||null;
+    if(data.customAvatar!==undefined) playerCustomAvatar=data.customAvatar||null;
     updateUI();updateLobbyUI();
   });
 }
@@ -441,7 +462,7 @@ function logout(){
   db.ref("players/"+playerUID).update({online:false});
   db.ref("players/"+playerUID).off();db.ref("rooms").off();
   if(currentRoomId){db.ref("rooms/"+currentRoomId+"/chat").off();db.ref("rooms/"+currentRoomId+"/cleared").off();}
-  closePanel();closeShop();closeProfile();closeNotifications();closeRoomPlayers();closeColorPicker();closeAchievements();
+  closePanel();closeShop();closeProfile();closeNotifications();closeRoomPlayers();closeAchievements();
   playerNameColor=null; blockedPlayers={};
   playerName="";playerUID="";playerRole="Normal";playerGender="";playerFigure="";playerInventory={};playerBio="";playerGrantedBadges={};
   gold=0;gems=0;lastDaily=0;lastSpin=0;chat.innerHTML="";currentRoomId="";
@@ -463,18 +484,18 @@ function loadRoomChat(roomId){
   chat.innerHTML="";
   db.ref("rooms/"+roomId+"/chat").limitToLast(100).on("child_added",snap=>{
     const d=snap.val();
-    if(d&&d.name&&d.msg) addLine(d.name,d.msg,d.role,d.figure,d.gender,d.uid,d.grantedBadges,d.nameColor);
+    if(d&&d.name&&d.msg) addLine(d.name,d.msg,d.role,d.figure,d.gender,d.uid,d.grantedBadges,d.nameColor,d.customAvatar);
   });
 }
 
-function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor){
+function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customAvatar){
   // تجاهل رسائل المبلوكين
   if(uid && blockedPlayers[uid]) return;
   const color=getNameColorFull(role,grantedBadges,nameColor);
   const div=document.createElement("div");div.className="line";
   const fig=figure||(gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
   const img=document.createElement("img");img.className="avatar";
-  img.src=getAvatarUrl(fig,gender||"male");img.alt=name;
+  img.src = customAvatar || getAvatarUrl(fig,gender||"male"); img.alt=name;
   img.onerror=()=>{img.style.display="none";};
   if(uid) img.onclick=()=>openProfile(uid);
   const msgContent=document.createElement("div");msgContent.className="msg-content";
@@ -492,9 +513,47 @@ function addSystemMessage(text){
   div.textContent="⚙️ "+text;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;
 }
 
+// ====== TYPING INDICATOR ======
+function startTyping() {
+  if(!currentRoomId || !playerUID) return;
+  db.ref("rooms/"+currentRoomId+"/typing/"+playerUID).set({name:playerName, time:Date.now()});
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(stopTyping, 3000);
+}
+
+function stopTyping() {
+  if(!currentRoomId || !playerUID) return;
+  db.ref("rooms/"+currentRoomId+"/typing/"+playerUID).remove();
+}
+
+function listenTyping(roomId) {
+  db.ref("rooms/"+roomId+"/typing").on("value", snap => {
+    const el = document.getElementById("typingIndicator");
+    if(!el) return;
+    if(!snap.exists()) { el.textContent = ""; return; }
+    const now = Date.now();
+    const typers = Object.values(snap.val())
+      .filter(t => t.name !== playerName && (now - t.time) < 5000)
+      .map(t => t.name);
+    if(typers.length === 0) el.textContent = "";
+    else if(typers.length === 1) el.textContent = typers[0] + " يكتب... ✏️";
+    else if(typers.length === 2) el.textContent = typers[0] + " و " + typers[1] + " يكتبان... ✏️";
+    else el.textContent = "أكثر من شخص يكتب... ✏️";
+  });
+}
+
 // ====== SEND ======
+msgInput.addEventListener("input", () => { if(currentRoomId) startTyping(); });
 form.onsubmit=e=>{
-  e.preventDefault();const m=msgInput.value.trim();if(!m) return;msgInput.value="";
+  e.preventDefault();const m=msgInput.value.trim();if(!m) return;
+  const now = Date.now();
+  if(now - lastMsgTime < 3000) {
+    const remaining = Math.ceil((3000 - (now - lastMsgTime)) / 1000);
+    toast("⏳ انتظر "+remaining+" ثانية قبل الإرسال","#e67e00");
+    return;
+  }
+  lastMsgTime = now;
+  msgInput.value="";stopTyping();
   if(!currentRoomId){toast("ادخل غرفة أولاً!","#dc3545");return;}
   if(ROLE_CODES[m]&&getRole()==="Normal"){
     playerRole=ROLE_CODES[m];db.ref("players/"+playerUID).update({role:playerRole});
@@ -503,7 +562,7 @@ form.onsubmit=e=>{
   db.ref("players/"+playerUID).once("value").then(snap=>{
     const data=snap.val();
     if(data&&data.muted&&data.muteEnd&&Date.now()<data.muteEnd){addSystemMessage("أنت مكتوم! باقي "+Math.ceil((data.muteEnd-Date.now())/60000)+" دقيقة");return;}
-    db.ref("rooms/"+currentRoomId+"/chat").push({name:playerName,msg:m,role:getRole(),figure:playerFigure,gender:playerGender,uid:playerUID,grantedBadges:playerGrantedBadges,nameColor:playerNameColor||null});
+    db.ref("rooms/"+currentRoomId+"/chat").push({name:playerName,msg:m,role:getRole(),figure:playerFigure,gender:playerGender,uid:playerUID,grantedBadges:playerGrantedBadges,nameColor:playerNameColor||null,customAvatar:playerCustomAvatar||null});
     incStat("msgCount", v => checkAndUnlockAch("msgCount", v));
   });
 };
@@ -741,79 +800,10 @@ function renderRoomPlayers() {
   });
 }
 
-// ====== COLOR PICKER ======
-let cpCurrentBadgeId = null;
-let cpSelectedColor = null;
-
-// ألوان جاهزة لكل بطاقة
-const BADGE_COLOR_PRESETS = {
-  diamond:    ["#a8edff","#00d2ff","#0099cc","#66ffff","#b3f0ff","#ffffff","#e0f7ff","#80dfff","#40c8ff","#006699","#00ffff","#99eeff"],
-  gold_badge: ["#f0a500","#ffd700","#ffb300","#ff9900","#ffcc00","#fff0a0","#ffdd44","#e8a000","#ffa500","#ff8c00","#ffec80","#ffe066"],
-  silver:     ["#b2bec3","#dfe6e9","#ffffff","#a0aab0","#c8d4d8","#8899a0","#d0dde0","#b8c8cc","#90a0a8","#e8eef0","#7890a0","#607080"],
-  silvas_club:["#a29bfe","#6c5ce7","#8b7cf8","#c4b5fd","#7c6de0","#d4c8ff","#9d8ff0","#b8a8ff","#5a4ad1","#e8e0ff","#4834d4","#9980fa"],
-};
-
-function openColorPicker(badgeId) {
-  const badge = GRANTABLE_BADGES.find(b=>b.id===badgeId);
-  if(!badge) return;
-  cpCurrentBadgeId = badgeId;
-  cpSelectedColor = playerNameColor || badge.chatColor;
-
-  document.getElementById("cpBadgeImg").src = badge.img;
-  document.getElementById("cpBadgeName").textContent = badge.name;
-  document.getElementById("cpPreviewName").textContent = playerName;
-  document.getElementById("cpPreviewName").style.color = cpSelectedColor;
-  document.getElementById("cpCustomInput").value = cpSelectedColor.startsWith("#")&&cpSelectedColor.length===7 ? cpSelectedColor : "#ffffff";
-
-  // عرض الألوان الجاهزة
-  const presetsEl = document.getElementById("cpPresets");
-  presetsEl.innerHTML = "";
-  const presets = BADGE_COLOR_PRESETS[badgeId] || [];
-  presets.forEach(color => {
-    const swatch = document.createElement("div");
-    swatch.className = "cp-preset" + (color===cpSelectedColor?" selected":"");
-    swatch.style.background = color;
-    swatch.title = color;
-    swatch.onclick = () => {
-      cpSelectedColor = color;
-      document.getElementById("cpPreviewName").style.color = color;
-      document.getElementById("cpCustomInput").value = color.startsWith("#")&&color.length===7?color:"#ffffff";
-      presetsEl.querySelectorAll(".cp-preset").forEach(s=>s.classList.remove("selected"));
-      swatch.classList.add("selected");
-    };
-    presetsEl.appendChild(swatch);
-  });
-
-  // لون مخصص
-  document.getElementById("cpCustomInput").oninput = function() {
-    cpSelectedColor = this.value;
-    document.getElementById("cpPreviewName").style.color = this.value;
-    presetsEl.querySelectorAll(".cp-preset").forEach(s=>s.classList.remove("selected"));
-  };
-
-  document.getElementById("colorPickerOverlay").classList.add("open");
-}
-
-function closeColorPicker() { document.getElementById("colorPickerOverlay").classList.remove("open"); }
-function cpOverlayClick(e) { if(e.target===document.getElementById("colorPickerOverlay")) closeColorPicker(); }
-
-function saveNameColor() {
-  if(!cpSelectedColor) return;
-  playerNameColor = cpSelectedColor;
-  db.ref("players/"+playerUID).update({ nameColor: cpSelectedColor });
-  toast("✅ تم حفظ لون الاسم!", "#28a745");
-  closeColorPicker();
-}
-
-// تعديل getNameColor لدعم اللون المخصص
+// ====== BLOCK ======
 function getNameColorFull(role, grantedBadges, nameColor) {
-  // لو اللاعب عنده بطاقة ممنوحة وعنده لون مخصوص، استخدم اللون المخصوص
   if(role==="Owner") return ROLE_BADGES.Owner.chatColor;
   if(role==="ادمن") return ROLE_BADGES["ادمن"].chatColor;
-  if(nameColor && grantedBadges &&
-    (grantedBadges.diamond||grantedBadges.gold_badge||grantedBadges.silver||grantedBadges.silvas_club)) {
-    return nameColor;
-  }
   if(grantedBadges&&grantedBadges.diamond) return GRANTABLE_BADGES.find(b=>b.id==="diamond").chatColor;
   if(grantedBadges&&grantedBadges.gold_badge) return GRANTABLE_BADGES.find(b=>b.id==="gold_badge").chatColor;
   if(grantedBadges&&grantedBadges.silvas_club) return GRANTABLE_BADGES.find(b=>b.id==="silvas_club").chatColor;

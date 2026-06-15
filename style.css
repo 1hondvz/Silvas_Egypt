@@ -351,35 +351,6 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
 .rp-role { font-size:10px; color:#a29bfe; margin-top:2px; }
 .rp-you-tag { font-size:10px; background:#6c5ce7; color:#fff; padding:1px 6px; border-radius:8px; margin-right:4px; }
 
-/* ===== COLOR PICKER for Badge ===== */
-#colorPickerOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:700; justify-content:center; align-items:center; padding:1rem; }
-#colorPickerOverlay.open { display:flex; }
-#colorPickerPanel {
-  background:#12122a; border-radius:16px; width:100%; max-width:340px;
-  padding:20px; box-shadow:0 20px 60px rgba(0,0,0,0.9); animation:popIn 0.2s ease;
-  border:1px solid rgba(255,255,255,0.1);
-}
-#colorPickerPanel h3 { margin-bottom:6px; font-size:15px; color:#fff; }
-#colorPickerPanel p { font-size:12px; color:#aaa; margin-bottom:14px; }
-.cp-badge-info { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding:10px; background:#1a1a3e; border-radius:10px; }
-.cp-badge-img { width:40px; height:40px; border-radius:8px; object-fit:cover; }
-.cp-badge-name { font-size:13px; font-weight:bold; }
-.cp-preview-row { display:flex; align-items:center; gap:8px; margin-bottom:16px; background:#0d0d1a; padding:10px; border-radius:10px; }
-.cp-preview-name { font-size:14px; font-weight:bold; }
-.cp-presets { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-bottom:14px; }
-.cp-preset {
-  aspect-ratio:1; border-radius:6px; cursor:pointer;
-  border:2px solid transparent; transition:0.15s;
-}
-.cp-preset:hover, .cp-preset.selected { border-color:#fff; transform:scale(1.15); }
-.cp-custom-row { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
-.cp-custom-row label { font-size:12px; color:#aaa; flex-shrink:0; }
-#cpCustomInput { flex:1; height:36px; border-radius:8px; border:2px solid #2d3748; cursor:pointer; background:none; }
-.cp-btns { display:flex; gap:8px; }
-.cp-btns button { flex:1; padding:9px; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:bold; }
-#cpSaveBtn { background:linear-gradient(45deg,#6c5ce7,#a29bfe); color:#fff; }
-#cpCancelBtn { background:#2d3748; color:#aaa; }
-
 /* ===== BLOCK ===== */
 /* بطاقات البلوك تتحجب في الشات - يتعالج بالـ JS */
 
