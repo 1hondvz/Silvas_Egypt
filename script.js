@@ -484,11 +484,11 @@ function loadRoomChat(roomId){
   chat.innerHTML="";
   db.ref("rooms/"+roomId+"/chat").limitToLast(100).on("child_added",snap=>{
     const d=snap.val();
-    if(d&&d.name&&d.msg) addLine(d.name,d.msg,d.role,d.figure,d.gender,d.uid,d.grantedBadges,d.nameColor,d.customAvatar);
+    if(d&&d.name&&(d.msg||d.imgUrl)) addLine(d.name,d.msg,d.role,d.figure,d.gender,d.uid,d.grantedBadges,d.nameColor,d.customAvatar,d.imgUrl);
   });
 }
 
-function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customAvatar){
+function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customAvatar,imgUrl){
   // تجاهل رسائل المبلوكين
   if(uid && blockedPlayers[uid]) return;
   const color=getNameColorFull(role,grantedBadges,nameColor);
@@ -502,8 +502,18 @@ function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customA
   const nameSpan=document.createElement("span");nameSpan.className="msg-name";
   nameSpan.style.color=color;nameSpan.textContent=name;
   if(uid) nameSpan.onclick=()=>openProfile(uid);
-  const msgSpan=document.createElement("span");msgSpan.className="msg-text";msgSpan.textContent=msg;
-  msgContent.appendChild(nameSpan);msgContent.appendChild(msgSpan);
+  msgContent.appendChild(nameSpan);
+  if(imgUrl) {
+    // رسالة صورة
+    const chatImg=document.createElement("img");
+    chatImg.className="chat-img";
+    chatImg.src=imgUrl;
+    chatImg.onclick=()=>window.open(imgUrl,"_blank");
+    msgContent.appendChild(chatImg);
+  } else {
+    const msgSpan=document.createElement("span");msgSpan.className="msg-text";msgSpan.textContent=msg;
+    msgContent.appendChild(msgSpan);
+  }
   div.appendChild(img);div.appendChild(msgContent);
   chat.appendChild(div);chat.scrollTop=chat.scrollHeight;
 }
@@ -511,6 +521,48 @@ function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customA
 function addSystemMessage(text){
   const div=document.createElement("div");div.className="system-msg";
   div.textContent="⚙️ "+text;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;
+}
+
+// ====== CHAT IMAGE ======
+function sendChatImage(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  if(!currentRoomId) { toast("ادخل غرفة أولاً!","#dc3545"); return; }
+  if(file.size > 5 * 1024 * 1024) { toast("الصورة كبيرة جداً! الحد الأقصى 5MB","#dc3545"); return; }
+  // anti-spam للصور
+  const now = Date.now();
+  if(now - lastMsgTime < 5000) { toast("⏳ انتظر قبل إرسال صورة أخرى","#e67e00"); return; }
+  toast("⏳ جاري رفع الصورة...","#6c5ce7");
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const formData = new FormData();
+    formData.append('image', base64);
+    fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, { method:'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if(data.success) {
+          lastMsgTime = Date.now();
+          db.ref("rooms/"+currentRoomId+"/chat").push({
+            name: playerName,
+            msg: "",
+            imgUrl: data.data.url,
+            role: getRole(),
+            figure: playerFigure,
+            gender: playerGender,
+            uid: playerUID,
+            grantedBadges: playerGrantedBadges,
+            nameColor: playerNameColor||null,
+            customAvatar: playerCustomAvatar||null
+          });
+          toast("✅ تم إرسال الصورة!","#28a745");
+        } else toast("فشل رفع الصورة","#dc3545");
+      })
+      .catch(() => toast("خطأ في الاتصال","#dc3545"));
+  };
+  reader.readAsDataURL(file);
+  // امسح الـ input عشان تقدر ترسل نفس الصورة تاني
+  event.target.value = "";
 }
 
 // ====== TYPING INDICATOR ======
@@ -1082,3 +1134,300 @@ function openPanel(page){openPage(page,"⚙️ لوحة التحكم");document.
 function closePanel(){document.getElementById("adminOverlay").classList.remove("open");}
 function overlayClick(e){if(e.target===document.getElementById("adminOverlay"))closePanel();}
 function openPage(id,title){document.querySelectorAll(".panel-page").forEach(p=>p.classList.remove("active"));document.getElementById("page-"+id).classList.add("active");if(title)document.getElementById("panelTitle").textContent=title;}
+
+
+// ====== PHONE ======
+const WALLPAPERS = [
+  { id:"wp1", url:"https://i.ibb.co/placeholder1/wp1.jpg", gradient:"linear-gradient(135deg,#667eea,#764ba2)" },
+  { id:"wp2", url:"", gradient:"linear-gradient(135deg,#f093fb,#f5576c)" },
+  { id:"wp3", url:"", gradient:"linear-gradient(135deg,#4facfe,#00f2fe)" },
+  { id:"wp4", url:"", gradient:"linear-gradient(135deg,#43e97b,#38f9d7)" },
+  { id:"wp5", url:"", gradient:"linear-gradient(135deg,#fa709a,#fee140)" },
+  { id:"wp6", url:"", gradient:"linear-gradient(135deg,#a18cd1,#fbc2eb)" },
+  { id:"wp7", url:"", gradient:"linear-gradient(135deg,#ffecd2,#fcb69f)" },
+  { id:"wp8", url:"", gradient:"linear-gradient(135deg,#ff9a9e,#fad0c4)" },
+];
+
+// الخلفيات اللي بعتها المستخدم بالصور الفعلية
+const WALLPAPER_IMAGES = [
+  "https://i.ibb.co/your-img1/bg1.jpg",  // هتتحدث لما ترفع الصور
+  "https://i.ibb.co/your-img2/bg2.jpg",
+  "https://i.ibb.co/your-img3/bg3.jpg",
+  "https://i.ibb.co/your-img4/bg4.jpg",
+];
+
+let phoneCurrentWallpaper = "";
+let gameCurrentNumber = 0;
+let gameScore = 0;
+let gamePhase = "show"; // show | input
+
+function openPhone() {
+  // حدّث الساعة
+  updatePhoneTime();
+  setInterval(updatePhoneTime, 30000);
+  // حمّل الخلفية المحفوظة
+  db.ref("players/"+playerUID+"/phoneWallpaper").once("value").then(snap => {
+    if(snap.exists()) applyWallpaper(snap.val(), false);
+  });
+  document.getElementById("phoneOverlay").classList.add("open");
+  goPhoneHome();
+}
+
+function closePhone() {
+  document.getElementById("phoneOverlay").classList.remove("open");
+}
+
+function phoneOverlayClick(e) {
+  if(e.target === document.getElementById("phoneOverlay")) closePhone();
+}
+
+function updatePhoneTime() {
+  const el = document.getElementById("phoneTime");
+  if(!el) return;
+  const now = new Date();
+  el.textContent = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+}
+
+function goPhoneHome() {
+  document.querySelectorAll(".phone-page").forEach(p => p.classList.remove("active"));
+  document.getElementById("phoneHome").classList.add("active");
+}
+
+function openPhoneApp(app) {
+  document.querySelectorAll(".phone-page").forEach(p => p.classList.remove("active"));
+  if(app === "settings") {
+    document.getElementById("phoneSettings").classList.add("active");
+    renderWallpaperGrid();
+  } else if(app === "twitter") {
+    document.getElementById("phoneTwitter").classList.add("active");
+    loadTwitterFeed();
+  } else if(app === "album") {
+    document.getElementById("phoneAlbum").classList.add("active");
+    loadAlbum();
+  } else if(app === "game") {
+    document.getElementById("phoneGame").classList.add("active");
+    startGame();
+  }
+}
+
+function closePhoneApp() { goPhoneHome(); }
+
+// ====== WALLPAPER ======
+function renderWallpaperGrid() {
+  const grid = document.getElementById("wallpaperGrid");
+  grid.innerHTML = "";
+  // الخلفيات اللي بعتها (صور حقيقية)
+  const realWPs = [
+    { id:"real1", bg:"url(https://i.postimg.cc/PxMWkzgb/wp1.jpg) center/cover" },
+    { id:"real2", bg:"url(https://i.postimg.cc/T3Bj9gkx/wp2.jpg) center/cover" },
+    { id:"real3", bg:"url(https://i.postimg.cc/HxhMPZ2K/wp3.jpg) center/cover" },
+    { id:"real4", bg:"url(https://i.postimg.cc/XJQD9k1g/wp4.jpg) center/cover" },
+    { id:"grad1", bg:"linear-gradient(135deg,#667eea,#764ba2)" },
+    { id:"grad2", bg:"linear-gradient(135deg,#f093fb,#f5576c)" },
+    { id:"grad3", bg:"linear-gradient(135deg,#4facfe,#00f2fe)" },
+    { id:"grad4", bg:"linear-gradient(135deg,#43e97b,#38f9d7)" },
+    { id:"grad5", bg:"linear-gradient(135deg,#fa709a,#fee140)" },
+    { id:"grad6", bg:"linear-gradient(135deg,#a18cd1,#fbc2eb)" },
+  ];
+  realWPs.forEach(wp => {
+    const div = document.createElement("div");
+    div.className = "wallpaper-item" + (phoneCurrentWallpaper === wp.bg ? " selected" : "");
+    div.style.background = wp.bg;
+    div.onclick = () => applyWallpaper(wp.bg, true);
+    grid.appendChild(div);
+  });
+}
+
+function applyWallpaper(bg, save) {
+  phoneCurrentWallpaper = bg;
+  const wEl = document.getElementById("phoneWallpaper");
+  if(wEl) wEl.style.background = bg;
+  if(save) {
+    db.ref("players/"+playerUID).update({ phoneWallpaper: bg });
+    toast("✅ تم تغيير الخلفية!", "#28a745");
+    renderWallpaperGrid();
+  }
+}
+
+// ====== TWITTER ======
+function loadTwitterFeed() {
+  const feed = document.getElementById("twitterFeed");
+  feed.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">جاري التحميل...</div>';
+  db.ref("tweets").orderByChild("time").limitToLast(30).once("value").then(snap => {
+    feed.innerHTML = "";
+    if(!snap.exists()) {
+      feed.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد تغريدات بعد 🐦</div>';
+      return;
+    }
+    const tweets = Object.values(snap.val()).reverse();
+    tweets.forEach(tw => renderTweet(tw, feed));
+  });
+}
+
+function renderTweet(tw, container) {
+  const div = document.createElement("div");
+  div.className = "tweet-card";
+  const fig = tw.figure || DEFAULT_FIGURE_MALE;
+  const gender = tw.gender || "male";
+  const avatarUrl = tw.customAvatar || getAvatarUrl(fig, gender);
+  const likes = tw.likes ? Object.keys(tw.likes).length : 0;
+  const liked = tw.likes && tw.likes[playerUID];
+  div.innerHTML = `
+    <div class="tweet-header">
+      <img class="tweet-avatar" src="${avatarUrl}" onerror="this.src=''" alt="">
+      <div>
+        <div class="tweet-name">${tw.authorName||"لاعب"}</div>
+      </div>
+      <span class="tweet-time">${timeAgo(tw.time)}</span>
+    </div>
+    <div class="tweet-text">${tw.text||""}</div>
+    <div class="tweet-actions">
+      <button class="tweet-action-btn ${liked?'liked':''}" onclick="likeTweet('${tw.id}', this)">
+        ${liked?'❤️':'🤍'} ${likes}
+      </button>
+    </div>`;
+  container.appendChild(div);
+}
+
+function likeTweet(tweetId, btn) {
+  const likeRef = db.ref("tweets/"+tweetId+"/likes/"+playerUID);
+  likeRef.once("value").then(snap => {
+    if(snap.exists()) {
+      likeRef.remove();
+      btn.classList.remove("liked");
+      btn.innerHTML = "🤍 " + (parseInt(btn.textContent) - 1);
+    } else {
+      likeRef.set(true);
+      btn.classList.add("liked");
+      btn.innerHTML = "❤️ " + (parseInt(btn.textContent.replace(/\D/g,"")) + 1);
+    }
+  });
+}
+
+function openNewTweet() {
+  document.getElementById("tweetInput").value = "";
+  document.getElementById("tweetCharCount").textContent = "0 / 280";
+  document.getElementById("newTweetOverlay").classList.add("open");
+  document.getElementById("tweetInput").oninput = function() {
+    document.getElementById("tweetCharCount").textContent = this.value.length + " / 280";
+  };
+}
+
+function closeNewTweet() { document.getElementById("newTweetOverlay").classList.remove("open"); }
+function newTweetOverlayClick(e) { if(e.target===document.getElementById("newTweetOverlay")) closeNewTweet(); }
+
+function postTweet() {
+  const text = document.getElementById("tweetInput").value.trim();
+  if(!text) { toast("اكتب حاجة الأول!", "#e67e00"); return; }
+  const tweetId = "tw_" + Date.now();
+  db.ref("tweets/"+tweetId).set({
+    id: tweetId,
+    authorUID: playerUID,
+    authorName: playerName,
+    figure: playerFigure,
+    gender: playerGender,
+    customAvatar: playerCustomAvatar || null,
+    text,
+    time: Date.now(),
+    likes: {}
+  });
+  toast("🚀 تم نشر التغريدة!", "#1da1f2");
+  closeNewTweet();
+  loadTwitterFeed();
+}
+
+// ====== ALBUM ======
+function loadAlbum() {
+  const grid = document.getElementById("albumGrid");
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#555;padding:20px;font-size:12px;">جاري التحميل...</div>';
+  db.ref("players/"+playerUID+"/album").once("value").then(snap => {
+    grid.innerHTML = "";
+    if(!snap.exists()) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد صور بعد 🖼️</div>';
+      return;
+    }
+    Object.values(snap.val()).reverse().forEach(photo => {
+      const img = document.createElement("img");
+      img.src = photo.url;
+      img.style.cssText = "width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;";
+      img.onclick = () => window.open(photo.url, "_blank");
+      grid.appendChild(img);
+    });
+  });
+}
+
+function uploadAlbumPhoto(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024) { toast("الصورة كبيرة جداً! الحد الأقصى 5MB","#dc3545"); return; }
+  toast("⏳ جاري رفع الصورة...","#6c5ce7");
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const formData = new FormData();
+    formData.append('image', base64);
+    fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, { method:'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if(data.success) {
+          const photoId = "ph_" + Date.now();
+          db.ref("players/"+playerUID+"/album/"+photoId).set({ url: data.data.url, time: Date.now() });
+          toast("✅ تم رفع الصورة!", "#28a745");
+          loadAlbum();
+        } else toast("فشل رفع الصورة","#dc3545");
+      })
+      .catch(() => toast("خطأ في الاتصال","#dc3545"));
+  };
+  reader.readAsDataURL(file);
+}
+
+// ====== MINI GAME ======
+function startGame() {
+  gameScore = 0;
+  document.getElementById("gameScore").textContent = "نقاط: 0";
+  document.getElementById("gameInput").value = "";
+  nextGameRound();
+}
+
+function nextGameRound() {
+  gamePhase = "show";
+  const digits = Math.min(2 + Math.floor(gameScore / 3), 6);
+  gameCurrentNumber = Math.floor(Math.random() * Math.pow(10, digits));
+  const numEl = document.getElementById("gameNumber");
+  numEl.textContent = gameCurrentNumber;
+  numEl.style.color = "#4facfe";
+  document.getElementById("gameInput").value = "";
+  document.getElementById("gameInput").disabled = true;
+  setTimeout(() => {
+    numEl.textContent = "؟";
+    numEl.style.color = "#aaa";
+    document.getElementById("gameInput").disabled = false;
+    document.getElementById("gameInput").focus();
+    gamePhase = "input";
+  }, 1500 + gameScore * 100);
+}
+
+function checkGameAnswer() {
+  if(gamePhase !== "input") return;
+  const answer = parseInt(document.getElementById("gameInput").value);
+  const numEl = document.getElementById("gameNumber");
+  if(answer === gameCurrentNumber) {
+    gameScore++;
+    document.getElementById("gameScore").textContent = "نقاط: " + gameScore;
+    numEl.textContent = "✅";
+    numEl.style.color = "#43e97b";
+    setTimeout(nextGameRound, 800);
+  } else {
+    numEl.textContent = gameCurrentNumber;
+    numEl.style.color = "#f44336";
+    setTimeout(() => {
+      toast("❌ انتهت اللعبة! نقاطك: " + gameScore, "#dc3545");
+      // احفظ أعلى نقاط
+      db.ref("players/"+playerUID+"/gameHighScore").once("value").then(snap => {
+        const current = snap.val() || 0;
+        if(gameScore > current) db.ref("players/"+playerUID).update({ gameHighScore: gameScore });
+      });
+      startGame();
+    }, 1000);
+  }
+}

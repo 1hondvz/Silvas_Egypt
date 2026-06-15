@@ -63,6 +63,7 @@
     <button onclick="claimDaily()">🎁 هدية يومية</button>
     <button onclick="spinWheel()">🎡 عجلة الحظ</button>
     <button onclick="openAchievements()" style="background:#ffd700;color:#12122a;font-weight:bold;">🏆 الإنجازات</button>
+    <button onclick="openPhone()" style="background:#1a1a3e;border:1px solid #6c5ce7;">📱 الفون</button>
     <button id="lobbyLogoutBtn" onclick="logout()">خروج 🚪</button>
   </div>
   <div id="roomsContainer">
@@ -87,10 +88,15 @@
     <button onclick="openRoomPlayers()" style="background:#0f3460 !important;border:1px solid #6c5ce7;">� اللاعبين</button>
     <button id="roomSettingsBtn" style="display:none" onclick="openRoomSettings()">⚙️ إعدادات الغرفة</button>
     <button id="adminToggleBtn" style="display:none" onclick="openPanel('main')">🛡️ الإدارة</button>
+    <button onclick="openPhone()" style="background:#1a1a3e;border:1px solid #6c5ce7;">📱 الفون</button>
   </div>
   <div id="chat"></div>
   <div id="typingIndicator" style="padding:4px 12px;font-size:11px;color:#a29bfe;font-style:italic;min-height:20px;flex-shrink:0;"></div>
-  <form id="form">
+<form id="form">
+    <label style="background:#1a1a3e;border:1px solid #6c5ce7;color:#a29bfe;padding:9px 12px;border-radius:6px;cursor:pointer;font-size:16px;flex-shrink:0;">
+      📷
+      <input type="file" id="chatImgInput" accept="image/*" style="display:none" onchange="sendChatImage(event)">
+    </label>
     <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off">
     <button type="submit">إرسال</button>
   </form>
@@ -174,6 +180,118 @@
       <button class="ach-tab" id="achTabRoles" onclick="switchAchTab('roles')">🏅 الرولات</button>
     </div>
     <div class="ach-body" id="achBody"></div>
+  </div>
+</div>
+
+<!-- PHONE OVERLAY -->
+<div id="phoneOverlay" onclick="phoneOverlayClick(event)">
+  <div id="phoneDevice">
+    <!-- الإطار -->
+    <div id="phoneFrame">
+      <!-- الشريط العلوي -->
+      <div id="phoneStatusBar">
+        <span id="phoneTime">12:00</span>
+        <span>📶 🔋</span>
+      </div>
+      <!-- الـ Notch -->
+      <div id="phoneNotch"></div>
+      <!-- محتوى الشاشة -->
+      <div id="phoneScreen">
+        <!-- الهوم سكرين -->
+        <div id="phoneHome" class="phone-page active">
+          <div id="phoneWallpaper"></div>
+          <div id="phoneAppsGrid">
+            <div class="phone-app" onclick="openPhoneApp('settings')">
+              <div class="phone-app-icon">⚙️</div>
+              <div class="phone-app-name">الإعدادات</div>
+            </div>
+            <div class="phone-app" onclick="openPhoneApp('twitter')">
+              <div class="phone-app-icon" style="background:linear-gradient(135deg,#1da1f2,#0d8bd9);">𝕏</div>
+              <div class="phone-app-name">Silvas X</div>
+            </div>
+            <div class="phone-app" onclick="openPhoneApp('album')">
+              <div class="phone-app-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);">🖼️</div>
+              <div class="phone-app-name">الصور</div>
+            </div>
+            <div class="phone-app" onclick="openPhoneApp('game')">
+              <div class="phone-app-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">🎮</div>
+              <div class="phone-app-name">لعبة</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- إعدادات -->
+        <div id="phoneSettings" class="phone-page">
+          <div class="phone-app-header">
+            <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
+            <span>الإعدادات</span>
+          </div>
+          <div class="phone-app-content">
+            <div class="settings-section-title">🖼️ خلفية الشاشة</div>
+            <div id="wallpaperGrid" class="wallpaper-grid"></div>
+          </div>
+        </div>
+
+        <!-- تويتر -->
+        <div id="phoneTwitter" class="phone-page">
+          <div class="phone-app-header" style="background:linear-gradient(135deg,#1da1f2,#0d8bd9);">
+            <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
+            <span>Silvas X</span>
+            <button onclick="openNewTweet()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:12px;">+ تغريدة</button>
+          </div>
+          <div class="phone-app-content" id="twitterFeed"></div>
+        </div>
+
+        <!-- الصور -->
+        <div id="phoneAlbum" class="phone-page">
+          <div class="phone-app-header" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
+            <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
+            <span>الصور</span>
+            <label style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:12px;">
+              + رفع
+              <input type="file" accept="image/*" style="display:none" onchange="uploadAlbumPhoto(event)">
+            </label>
+          </div>
+          <div class="phone-app-content" id="albumGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;"></div>
+        </div>
+
+        <!-- لعبة -->
+        <div id="phoneGame" class="phone-page">
+          <div class="phone-app-header" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
+            <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
+            <span>لعبة الأرقام</span>
+            <span id="gameScore" style="font-size:13px;font-weight:bold;">نقاط: 0</span>
+          </div>
+          <div class="phone-app-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+            <div style="font-size:14px;color:#aaa;">احفظ الرقم التالي ثم اكتبه!</div>
+            <div id="gameNumber" style="font-size:48px;font-weight:bold;color:#4facfe;min-height:60px;"></div>
+            <input id="gameInput" type="number" placeholder="ادخل الرقم" style="width:80%;padding:10px;border-radius:10px;border:2px solid #4facfe;background:#1a1a3e;color:#fff;font-size:18px;text-align:center;">
+            <button onclick="checkGameAnswer()" style="background:linear-gradient(135deg,#4facfe,#00f2fe);border:none;color:#fff;padding:10px 30px;border-radius:20px;cursor:pointer;font-size:15px;font-weight:bold;">تحقق ✓</button>
+            <button onclick="startGame()" style="background:#1a1a3e;border:1px solid #4facfe;color:#4facfe;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;">بداية جديدة 🔄</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- الشريط السفلي (home indicator) -->
+      <div id="phoneHomeBar" onclick="goPhoneHome()"></div>
+    </div>
+    <!-- زرار إغلاق -->
+    <button id="phoneCloseBtn" onclick="closePhone()">✖</button>
+  </div>
+</div>
+
+<!-- NEW TWEET -->
+<div id="newTweetOverlay" onclick="newTweetOverlayClick(event)">
+  <div id="newTweetPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="font-weight:bold;color:#1da1f2;">تغريدة جديدة</span>
+      <button onclick="closeNewTweet()" style="background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;">✖</button>
+    </div>
+    <textarea id="tweetInput" placeholder="ماذا يدور في ذهنك؟" maxlength="280" style="width:100%;height:100px;background:#1a1a3e;border:1px solid #1da1f2;border-radius:10px;color:#fff;padding:10px;font-size:13px;resize:none;direction:rtl;"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+      <span id="tweetCharCount" style="font-size:12px;color:#aaa;">0 / 280</span>
+      <button onclick="postTweet()" style="background:linear-gradient(135deg,#1da1f2,#0d8bd9);border:none;color:#fff;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:bold;">نشر 🚀</button>
+    </div>
   </div>
 </div>
 
