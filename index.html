@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Silvas Egypt</title>
+</head>
+<body>
+
+<div class="floating-icons">
+  <div class="icon">⚔️</div><div class="icon">🔒</div><div class="icon">👤</div>
+  <div class="icon">🌟</div><div class="icon">💫</div><div class="icon">🎯</div>
+  <div class="icon">🏰</div><div class="icon">🚀</div>
+</div>
+
+<!-- AUTH -->
+<div id="authPage">
+  <div class="auth-container">
+    <h1 class="logo">Silvas</h1>
+    <div id="loginForm">
+      <p class="subtitle">مرحباً بك في Silvas Egypt 🏰</p>
+      <form onsubmit="handleLogin(event)">
+        <div class="input-group"><label>اسم اللاعب</label><div class="input-with-icon"><input type="text" id="loginName" placeholder="ادخل اسمك" required autocomplete="off"><span class="form-icon">👤</span></div></div>
+        <div class="input-group"><label>كلمة المرور</label><div class="input-with-icon"><input type="password" id="loginPass" placeholder="ادخل كلمة المرور" required><span class="form-icon">🔒</span></div></div>
+        <div class="auth-error" id="loginError"></div>
+        <button type="submit" class="auth-btn" id="loginBtn">دخول</button>
+      </form>
+      <div class="divider"><span>أو</span></div>
+      <div class="switch-link">ليس لديك حساب؟ <a onclick="showRegister()">إنشاء حساب جديد</a></div>
+    </div>
+    <div id="registerForm">
+      <p class="subtitle">إنشاء حساب جديد ✨</p>
+      <form onsubmit="handleRegister(event)">
+        <div class="input-group"><label>اسم اللاعب</label><div class="input-with-icon"><input type="text" id="regName" placeholder="ادخل اسمك في اللعبة" required autocomplete="off"><span class="form-icon">👤</span></div></div>
+        <div class="input-group"><label>كلمة المرور</label><div class="input-with-icon"><input type="password" id="regPass" placeholder="اختار كلمة مرور" required><span class="form-icon">🔒</span></div></div>
+        <div class="input-group"><label>تأكيد كلمة المرور</label><div class="input-with-icon"><input type="password" id="regPassConfirm" placeholder="أعد كتابة كلمة المرور" required><span class="form-icon">🔑</span></div></div>
+        <div class="input-group"><label>الجنس</label><div class="input-with-icon"><select id="regGender" required><option value="">اختر</option><option value="male">ذكر 👦</option><option value="female">أنثى 👧</option></select><span class="form-icon">👥</span></div></div>
+        <div class="auth-error" id="regError"></div>
+        <button type="submit" class="auth-btn" id="regBtn">تسجيل</button>
+      </form>
+      <div class="divider"><span>أو</span></div>
+      <div class="switch-link">لديك حساب بالفعل؟ <a onclick="showLogin()">تسجيل الدخول</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobbyPage">
+  <div id="lobbyTopBar">
+    <h3>🏰 Silvas Egypt</h3>
+    <div id="lobbyResources">
+      <span id="lobbyGold">Gold: 0</span>
+      <span id="lobbyGems">Gems: 0</span>
+      <button id="notifBell" onclick="openNotifications()">🔔<span id="notifBadge"></span></button>
+    </div>
+  </div>
+  <div id="lobbyActions">
+    <button onclick="openCreateRoom()">➕ إنشاء غرفة</button>
+    <button id="lobbyShopBtn" onclick="openShop()">🛍️ المتجر</button>
+    <button id="lobbyProfileBtn" onclick="openProfile(playerUID)">👤 بروفايلي</button>
+    <button id="lobbyAdminBtn" style="display:none" onclick="openPanel('main')">⚙️ لوحة التحكم</button>
+    <button onclick="claimDaily()">🎁 هدية يومية</button>
+    <button onclick="spinWheel()">🎡 عجلة الحظ</button>
+    <button onclick="openAchievements()" style="background:#ffd700;color:#12122a;font-weight:bold;">🏆 الإنجازات</button>
+    <button id="lobbyLogoutBtn" onclick="logout()">خروج 🚪</button>
+  </div>
+  <div id="roomsContainer">
+    <h4>🚪 الغرف المتاحة</h4>
+    <div class="rooms-grid" id="roomsGrid"></div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="gamePage">
+  <div id="topBar">
+    <h3 onclick="goToLobby()" title="رجوع للوبي">🏰 <span id="currentRoomName">Silvas Egypt</span> ◀</h3>
+    <div id="resources"><span id="gold">Gold: 0</span><span id="gems">Gems: 0</span><button id="notifBellGame" onclick="openNotifications()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;position:relative;display:flex;align-items:center;justify-content:center;">🔔</button></div>
+    <button id="logoutBtn" onclick="goToLobby()">🚪 اللوبي</button>
+  </div>
+  <div id="rewardButtons">
+    <button onclick="claimDaily()">🎁 الهدية اليومية</button>
+    <button onclick="spinWheel()">🎡 عجلة الحظ</button>
+    <button onclick="openAchievements()" style="background:#ffd700;color:#12122a;font-weight:bold;">🏆 الإنجازات</button>
+    <button onclick="changeName()">✏️ تغيير الاسم (100 Gems)</button>
+    <button id="shopBtn" onclick="openShop()">🛍️ المتجر</button>
+    <button onclick="openRoomPlayers()" style="background:#0f3460 !important;border:1px solid #6c5ce7;">� اللاعبين</button>
+    <button id="roomSettingsBtn" style="display:none" onclick="openRoomSettings()">⚙️ إعدادات الغرفة</button>
+    <button id="adminToggleBtn" style="display:none" onclick="openPanel('main')">🛡️ الإدارة</button>
+  </div>
+  <div id="chat"></div>
+  <form id="form">
+    <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off">
+    <button type="submit">إرسال</button>
+  </form>
+</div>
+
+<!-- PROFILE OVERLAY -->
+<div id="profileOverlay" onclick="profileOverlayClick(event)">
+  <div id="profilePanel">
+    <div class="profile-header">
+      <button class="profile-close-btn" onclick="closeProfile()">✖</button>
+      <button class="profile-edit-btn" id="profileEditBtn" onclick="editBio()" style="display:none">✏️ تعديل Bio</button>
+      <div class="profile-avatar-wrap">
+        <img id="profileAvatar" src="" alt="avatar">
+        <div class="online-dot" id="profileOnlineDot"></div>
+      </div>
+      <div class="profile-name" id="profileNameEl"></div>
+      <div class="profile-bio" id="profileBioEl"></div>
+      <div class="profile-stats">
+        <div class="stat-pill"><img src="https://i.ibb.co/DDsBS2Q2/goldcoin.png" onerror="this.textContent='💵';this.style.display='inline'"><span id="profileID"></span></div>
+        <div class="stat-pill">👥 <span id="profileFriends">0</span></div>
+        <div class="stat-pill">❤️ <span id="profileLikes">0</span></div>
+      </div>
+    </div>
+    <div class="profile-body">
+      <div class="profile-main">
+        <!-- أزرار التفاعل -->
+        <div class="profile-actions" id="profileActions"></div>
+        <!-- أزرار الأدمن -->
+        <div class="profile-admin-actions" id="profileAdminActions"></div>
+        <!-- الإنجازات -->
+        <div class="achievements-title">🏆 الإنجازات</div>
+        <div class="achievements-grid" id="achievementsGrid"></div>
+        <!-- البطاقات الممنوحة -->
+        <div class="granted-badges-title">🎖️ البطاقات</div>
+        <div class="granted-badges-grid" id="grantedBadgesGrid"></div>
+      </div>
+      <!-- البطاقات الجانبية (رول) -->
+      <div class="profile-badges-side" id="profileBadgesSide"></div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifOverlay" onclick="notifOverlayClick(event)">
+  <div id="notifPanel">
+    <div class="notif-header">
+      <h3>🔔 الإشعارات</h3>
+      <div class="notif-header-actions">
+        <button class="notif-clear-btn" onclick="clearAllNotifs()">مسح الكل</button>
+        <button class="notif-close-btn" onclick="closeNotifications()">✖</button>
+      </div>
+    </div>
+    <div class="notif-list" id="notifList"></div>
+  </div>
+</div>
+
+<!-- ROOM PLAYERS -->
+<div id="roomPlayersOverlay" onclick="roomPlayersOverlayClick(event)">
+  <div id="roomPlayersPanel">
+    <div class="rp-header">
+      <h3>👥 اللاعبون في الغرفة</h3>
+      <button class="rp-close-btn" onclick="closeRoomPlayers()">✖</button>
+    </div>
+    <div id="roomPlayersList"></div>
+  </div>
+</div>
+
+<!-- COLOR PICKER -->
+<div id="colorPickerOverlay" onclick="cpOverlayClick(event)">
+  <div id="colorPickerPanel">
+    <h3>🎨 اختار لون اسمك</h3>
+    <p>اختار اللون اللي يعجبك في الشات</p>
+    <div class="cp-badge-info">
+      <img class="cp-badge-img" id="cpBadgeImg" src="" alt="">
+      <div class="cp-badge-name" id="cpBadgeName"></div>
+    </div>
+    <div class="cp-preview-row">
+      <span style="color:#aaa;font-size:12px;">معاينة:</span>
+      <span class="cp-preview-name" id="cpPreviewName"></span>
+    </div>
+    <div class="cp-presets" id="cpPresets"></div>
+    <div class="cp-custom-row">
+      <label>لون مخصص:</label>
+      <input type="color" id="cpCustomInput" value="#ffffff">
+    </div>
+    <div class="cp-btns">
+      <button id="cpCancelBtn" onclick="closeColorPicker()">إلغاء</button>
+      <button id="cpSaveBtn" onclick="saveNameColor()">حفظ ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS OVERLAY -->
+<div id="achOverlay" onclick="achOverlayClick(event)">
+  <div id="achPanel">
+    <div class="ach-panel-header">
+      <h3>🏆 الإنجازات والرولات</h3>
+      <button class="ach-close-btn" onclick="closeAchievements()">✖</button>
+    </div>
+    <div class="ach-tabs">
+      <button class="ach-tab active" id="achTabAch" onclick="switchAchTab('achievements')">🏆 الإنجازات</button>
+      <button class="ach-tab" id="achTabRoles" onclick="switchAchTab('roles')">🏅 الرولات</button>
+    </div>
+    <div class="ach-body" id="achBody"></div>
+  </div>
+</div>
+
+<!-- CREATE ROOM -->
+<div id="createRoomOverlay" onclick="createRoomOverlayClick(event)">
+  <div id="createRoomPanel">
+    <h3>➕ إنشاء غرفة جديدة</h3>
+    <div class="input-group"><label>اسم الغرفة</label><input type="text" id="roomNameInput" placeholder="ادخل اسم الغرفة" maxlength="30"></div>
+    <div class="input-group"><label>مقاس الغرفة</label><select id="roomSizeInput"></select></div>
+    <div class="input-group"><label>كلمة مرور (اختياري)</label><input type="password" id="roomPassInputCreate" placeholder="اتركه فاضي لو عايزها عامة"></div>
+    <div class="create-room-btns">
+      <button id="cancelCreateRoom" onclick="closeCreateRoom()">إلغاء</button>
+      <button id="confirmCreateRoom" onclick="confirmCreateRoom()">إنشاء ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROOM PASSWORD -->
+<div id="roomPassOverlay">
+  <div id="roomPassPanel">
+    <h3>🔒 الغرفة محمية</h3>
+    <p style="color:#aaa;font-size:13px;margin-bottom:12px;">ادخل كلمة مرور الغرفة</p>
+    <input type="password" id="roomPassInput" placeholder="كلمة المرور">
+    <div class="pass-btns">
+      <button id="cancelRoomPass" onclick="closeRoomPass()">إلغاء</button>
+      <button id="confirmRoomPass" onclick="confirmRoomPass()">دخول ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="shopOverlay" onclick="shopOverlayClick(event)">
+  <div id="shopPanel">
+    <div class="shop-header"><h3>🛍️ متجر Silvas</h3><button class="shop-close" onclick="closeShop()">✖</button></div>
+    <div class="shop-tabs" id="shopTabs"></div>
+    <div class="shop-preview"><img id="previewImg" src="" alt="preview"><p>معاينة شخصيتك</p></div>
+    <div class="shop-items" id="shopItems"></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminOverlay" onclick="overlayClick(event)">
+  <div id="adminPanel">
+    <div class="panel-header"><span id="panelTitle">⚙️ لوحة التحكم</span><button class="panel-close" onclick="closePanel()">✖</button></div>
+    <div class="panel-page active" id="page-main">
+      <div class="main-grid">
+        <button class="main-btn" onclick="openPage('money','💰 الفلوس')"><span class="ico">💰</span>الفلوس</button>
+        <button class="main-btn" onclick="openPage('roles','🏅 الرتب')"><span class="ico">🏅</span>الرتب</button>
+        <button class="main-btn" onclick="openPage('achievements','🏆 الإنجازات')"><span class="ico">🏆</span>الإنجازات</button>
+        <button class="main-btn danger" onclick="openPage('moderation','🛡️ الإدارة')"><span class="ico">🛡️</span>الإدارة</button>
+        <button class="main-btn danger" onclick="doClearChat()"><span class="ico">🧹</span>مسح الشات</button>
+      </div>
+    </div>
+    <div class="panel-page" id="page-money">
+      <div class="sub-title"><button class="back-btn" onclick="openPage('main','⚙️ لوحة التحكم')">❮</button>💰 الفلوس</div>
+      <div class="sub-grid">
+        <button class="sub-btn" onclick="giveGemsPrompt()"><span class="ico">💎</span>منح جواهر</button>
+        <button class="sub-btn danger" onclick="removeGemsPrompt()"><span class="ico">💎</span>شيل جواهر</button>
+        <button class="sub-btn" onclick="giveGoldPrompt()"><span class="ico">🪙</span>منح ذهب</button>
+        <button class="sub-btn danger" onclick="removeGoldPrompt()"><span class="ico">🪙</span>شيل ذهب</button>
+      </div>
+    </div>
+    <div class="panel-page" id="page-roles">
+      <div class="sub-title"><button class="back-btn" onclick="openPage('main','⚙️ لوحة التحكم')">❮</button>🏅 الرتب</div>
+      <div class="sub-grid">
+        <button class="sub-btn" onclick="giveRolePrompt()"><span class="ico">🏅</span>منح رتبة</button>
+        <button class="sub-btn danger" onclick="removeRole()"><span class="ico">🗑️</span>شيل الرتبة</button>
+      </div>
+    </div>
+
+<div class="panel-page" id="page-achievements">
+  <div class="sub-title"><button class="back-btn" onclick="openPage('main','⚙️ لوحة التحكم')">❮</button>🏆 الإنجازات</div>
+  <div class="sub-grid">
+    <button class="sub-btn" onclick="giveAchievementPrompt()"><span class="ico">🏆</span>منح إنجاز</button>
+    <button class="sub-btn danger" onclick="removeAchievementPrompt()"><span class="ico">🗑️</span>شيل إنجاز</button>
+  </div>
+</div>
+<div class="panel-page" id="page-moderation">
+  <div class="sub-title"><button class="back-btn" onclick="openPage('main','⚙️ لوحة التحكم')">❮</button>🛡️ الإدارة</div>
+  <div class="sub-grid">
+    <button class="sub-btn danger" onclick="kickPlayerPrompt()"><span class="ico">👢</span>طرد لاعب</button>
+    <button class="sub-btn danger" onclick="mutePlayerPrompt()"><span class="ico">🔇</span>كتم لاعب</button>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
