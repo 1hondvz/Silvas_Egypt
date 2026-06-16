@@ -256,8 +256,6 @@ function openProfile(uid){
     document.getElementById("profileLikes").textContent=likesCount;
     // زرار تعديل Bio لو بروفايله هو
     document.getElementById("profileEditBtn").style.display=uid===playerUID?"inline-block":"none";
-    const uploadBtn = document.getElementById("uploadAvatarBtn");
-    if(uploadBtn) uploadBtn.style.display = uid===playerUID ? "inline-block" : "none";
     // بطاقات الرول (يمين)
     const sideEl=document.getElementById("profileBadgesSide");sideEl.innerHTML="";
     const role=data.role||"Normal";
@@ -384,35 +382,8 @@ function editBio(){
   toast("✅ تم تحديث Bio!","#28a745");
 }
 
-// ====== PROFILE PICTURE UPLOAD ======
+// IMGBB key للشات والألبوم
 const IMGBB_KEY = "6ed0a5a9d1c53ed850ce30b14b719b65";
-
-function uploadProfilePicture(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  if(file.size > 5 * 1024 * 1024) { toast("الصورة كبيرة جداً! الحد الأقصى 5MB","#dc3545"); return; }
-  toast("⏳ جاري رفع الصورة...","#6c5ce7");
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const base64 = e.target.result.split(',')[1];
-    const formData = new FormData();
-    formData.append('image', base64);
-    fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, { method:'POST', body: formData })
-      .then(r => r.json())
-      .then(data => {
-        if(data.success) {
-          const url = data.data.url;
-          db.ref("players/"+playerUID).update({ customAvatar: url });
-          document.getElementById("profileAvatar").src = url;
-          toast("✅ تم تحديث الصورة!","#28a745");
-        } else {
-          toast("فشل رفع الصورة","#dc3545");
-        }
-      })
-      .catch(() => toast("خطأ في الاتصال","#dc3545"));
-  };
-  reader.readAsDataURL(file);
-}
 
 // لايك
 function toggleLike(targetUID,btn){
@@ -639,9 +610,9 @@ msgInput.addEventListener("input", () => { if(currentRoomId) startTyping(); });
 form.onsubmit=e=>{
   e.preventDefault();const m=msgInput.value.trim();if(!m) return;
   const now = Date.now();
-  if(now - lastMsgTime < 3000) {
-    const remaining = Math.ceil((3000 - (now - lastMsgTime)) / 1000);
-    toast("⏳ انتظر "+remaining+" ثانية قبل الإرسال","#e67e00");
+  if(now - lastMsgTime < 500) {
+    const remaining = ((500 - (now - lastMsgTime)) / 1000).toFixed(1);
+    toast("⏳ انتظر "+remaining+" ثانية","#e67e00");
     return;
   }
   lastMsgTime = now;

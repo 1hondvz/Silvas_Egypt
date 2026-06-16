@@ -120,7 +120,8 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
   padding:4px 10px; border-radius:20px; cursor:pointer; font-size:11px;
 }
 .profile-avatar-wrap { position:relative; display:inline-block; margin-bottom:8px; }
-.profile-avatar-wrap img { height:120px; image-rendering:pixelated; }
+.profile-avatar-wrap img { height:120px; image-rendering:pixelated; display:block; }
+.profile-avatar-wrap:hover #uploadAvatarBtn { display:flex !important; }
 .online-dot {
   width:12px; height:12px; background:#2ecc71;
   border-radius:50%; border:2px solid #12122a;
