@@ -1243,7 +1243,7 @@ function openPhoneApp(app) {
     renderWallpaperGrid();
   } else if(app === "twitter") {
     document.getElementById("phoneTwitter").classList.add("active");
-    loadTwitterFeed();
+    twInit();
   } else if(app === "album") {
     document.getElementById("phoneAlbum").classList.add("active");
     loadAlbum();
@@ -1293,68 +1293,403 @@ function applyWallpaper(bg, save) {
   }
 }
 
-// ====== TWITTER ======
-function loadTwitterFeed() {
-  const feed = document.getElementById("twitterFeed");
-  feed.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">جاري التحميل...</div>';
-  db.ref("tweets").orderByChild("time").limitToLast(30).once("value").then(snap => {
-    feed.innerHTML = "";
+// ====== TWITTER / X ======
+let twCurrentPage = "home"; // home | profile | search | notif
+let twProfileUID = null;
+let twComposeImgUrl = null;
+
+function twInit() {
+  // حدّث أفاتار الـ bar
+  const fig = playerFigure || DEFAULT_FIGURE_MALE;
+  const av = playerCustomAvatar || getAvatarUrl(fig, playerGender||"male");
+  const el = document.getElementById("twMyAvatar");
+  if(el) el.src = av;
+  twGoHome();
+}
+
+// ====== Navigation ======
+function twSetActiveBar(btn) {
+  document.querySelectorAll(".tw-bar-btn").forEach(b => b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+
+function twGoHome() {
+  twCurrentPage = "home";
+  twSetActiveBar(document.getElementById("twBtnHome"));
+  document.getElementById("twHeaderTitle").textContent = "𝕏";
+  twLoadHome();
+}
+
+function twGoSearch() {
+  twCurrentPage = "search";
+  twSetActiveBar(document.getElementById("twBtnSearch"));
+  document.getElementById("twHeaderTitle").textContent = "بحث";
+  twLoadSearch();
+}
+
+function twGoNotif() {
+  twCurrentPage = "notif";
+  twSetActiveBar(document.getElementById("twBtnNotif"));
+  document.getElementById("twHeaderTitle").textContent = "الإشعارات";
+  twLoadNotif();
+}
+
+function twGoProfile(uid) {
+  twCurrentPage = "profile";
+  twProfileUID = uid || playerUID;
+  twSetActiveBar(uid===playerUID ? document.getElementById("twBtnProfile") : null);
+  twLoadProfile(twProfileUID);
+}
+
+// ====== HOME FEED ======
+function twLoadHome() {
+  const content = document.getElementById("twContent");
+  content.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">جاري التحميل...</div>';
+  db.ref("tweets").orderByChild("time").limitToLast(40).once("value").then(snap => {
+    content.innerHTML = "";
     if(!snap.exists()) {
-      feed.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد تغريدات بعد 🐦</div>';
+      content.innerHTML = '<div style="text-align:center;color:#555;padding:40px;font-size:13px;">لا توجد تغريدات بعد 🐦<br><small style="color:#444;">ابدأ بنشر أول تغريدة!</small></div>';
       return;
     }
-    const tweets = Object.values(snap.val()).reverse();
-    tweets.forEach(tw => renderTweet(tw, feed));
+    Object.values(snap.val()).sort((a,b)=>b.time-a.time).forEach(tw => twRenderPost(tw, content));
   });
 }
 
-function renderTweet(tw, container) {
-  const div = document.createElement("div");
-  div.className = "tweet-card";
+// ====== RENDER POST ======
+function twRenderPost(tw, container, prepend=false) {
   const fig = tw.figure || DEFAULT_FIGURE_MALE;
-  const gender = tw.gender || "male";
-  const avatarUrl = tw.customAvatar || getAvatarUrl(fig, gender);
+  const av  = tw.customAvatar || getAvatarUrl(fig, tw.gender||"male");
   const likes = tw.likes ? Object.keys(tw.likes).length : 0;
-  const liked = tw.likes && tw.likes[playerUID];
+  const comments = tw.comments ? Object.keys(tw.comments).length : 0;
+  const retweets = tw.retweets ? Object.keys(tw.retweets).length : 0;
+  const liked    = tw.likes && tw.likes[playerUID];
+  const retweeted= tw.retweets && tw.retweets[playerUID];
+
+  const div = document.createElement("div");
+  div.className = "tw-post";
   div.innerHTML = `
-    <div class="tweet-header">
-      <img class="tweet-avatar" src="${avatarUrl}" onerror="this.src=''" alt="">
-      <div>
-        <div class="tweet-name">${tw.authorName||"لاعب"}</div>
+    <div class="tw-post-header">
+      <img class="tw-avatar" src="${av}" onerror="this.style.display='none'" onclick="twGoProfile('${tw.authorUID}')">
+      <div class="tw-post-meta">
+        <div class="tw-post-name" onclick="twGoProfile('${tw.authorUID}')">${tw.authorName||"لاعب"}</div>
+        <div class="tw-post-handle">· ${timeAgo(tw.time)}</div>
       </div>
-      <span class="tweet-time">${timeAgo(tw.time)}</span>
+      ${tw.authorUID===playerUID ? `<button onclick="twDeletePost('${tw.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;margin-right:auto;">🗑️</button>` : ""}
     </div>
-    <div class="tweet-text">${tw.text||""}</div>
-    <div class="tweet-actions">
-      <button class="tweet-action-btn ${liked?'liked':''}" onclick="likeTweet('${tw.id}', this)">
+    ${tw.text ? `<div class="tw-post-text">${tw.text}</div>` : ""}
+    ${tw.imgUrl ? `<img class="tw-post-img" src="${tw.imgUrl}" onclick="openImgLightbox('${tw.imgUrl}')">` : ""}
+    <div class="tw-post-actions">
+      <button class="tw-action" onclick="twOpenComments('${tw.id}')">💬 ${comments}</button>
+      <button class="tw-action ${retweeted?'retweeted':''}" onclick="twToggleRetweet('${tw.id}',this)">🔁 ${retweets}</button>
+      <button class="tw-action ${liked?'liked':''}" onclick="twToggleLike('${tw.id}',this)">
         ${liked?'❤️':'🤍'} ${likes}
       </button>
     </div>`;
-  container.appendChild(div);
+  if(prepend && container.firstChild) container.insertBefore(div, container.firstChild);
+  else container.appendChild(div);
 }
 
-function likeTweet(tweetId, btn) {
-  const likeRef = db.ref("tweets/"+tweetId+"/likes/"+playerUID);
-  likeRef.once("value").then(snap => {
+// ====== LIKE ======
+function twToggleLike(tweetId, btn) {
+  const ref = db.ref("tweets/"+tweetId+"/likes/"+playerUID);
+  ref.once("value").then(snap => {
+    const parts = btn.innerHTML.split(" ");
+    const count = parseInt(parts[parts.length-1])||0;
     if(snap.exists()) {
-      likeRef.remove();
+      ref.remove();
       btn.classList.remove("liked");
-      btn.innerHTML = "🤍 " + (parseInt(btn.textContent) - 1);
+      btn.innerHTML = "🤍 " + (count-1);
     } else {
-      likeRef.set(true);
+      ref.set(true);
       btn.classList.add("liked");
-      btn.innerHTML = "❤️ " + (parseInt(btn.textContent.replace(/\D/g,"")) + 1);
+      btn.innerHTML = "❤️ " + (count+1);
     }
   });
 }
 
-function openNewTweet() {
+// ====== RETWEET ======
+function twToggleRetweet(tweetId, btn) {
+  const ref = db.ref("tweets/"+tweetId+"/retweets/"+playerUID);
+  ref.once("value").then(snap => {
+    const parts = btn.innerHTML.split(" ");
+    const count = parseInt(parts[parts.length-1])||0;
+    if(snap.exists()) {
+      ref.remove();
+      btn.classList.remove("retweeted");
+      btn.innerHTML = "🔁 " + (count-1);
+    } else {
+      ref.set(true);
+      btn.classList.add("retweeted");
+      btn.innerHTML = "🔁 " + (count+1);
+      toast("تم الريتويت ✅","#00ba7c");
+    }
+  });
+}
+
+// ====== DELETE ======
+function twDeletePost(tweetId) {
+  if(!confirm("حذف التغريدة؟")) return;
+  db.ref("tweets/"+tweetId).remove();
+  toast("تم الحذف","#636e72");
+  twGoHome();
+}
+
+// ====== COMMENTS ======
+function twOpenComments(tweetId) {
+  db.ref("tweets/"+tweetId).once("value").then(snap => {
+    if(!snap.exists()) return;
+    const tw = snap.val();
+    const content = document.getElementById("twContent");
+    content.innerHTML = "";
+
+    // هيدر
+    const hdr = document.getElementById("twHeader");
+    hdr.innerHTML = `<button class="tw-header-back" onclick="twGoHome()">❮</button><span style="font-size:15px;font-weight:bold;">التغريدة</span>`;
+
+    // التغريدة الأصلية
+    twRenderPost(tw, content);
+
+    // الكومنتات
+    const commDiv = document.createElement("div");
+    commDiv.style.cssText = "border-top:1px solid #1a1a1a;";
+    const comms = tw.comments ? Object.values(tw.comments).sort((a,b)=>a.time-b.time) : [];
+    if(comms.length===0) {
+      commDiv.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد ردود بعد</div>';
+    } else {
+      comms.forEach(c => {
+        const fig = c.figure||DEFAULT_FIGURE_MALE;
+        const av = c.customAvatar||getAvatarUrl(fig,c.gender||"male");
+        const cd = document.createElement("div");
+        cd.className = "tw-post";
+        cd.innerHTML = `
+          <div class="tw-post-header">
+            <img class="tw-avatar" src="${av}" onerror="this.style.display='none'" onclick="twGoProfile('${c.uid}')">
+            <div class="tw-post-meta">
+              <div class="tw-post-name">${c.name}</div>
+              <div class="tw-post-handle">· ${timeAgo(c.time)}</div>
+            </div>
+          </div>
+          <div class="tw-post-text">${c.text}</div>`;
+        commDiv.appendChild(cd);
+      });
+    }
+    content.appendChild(commDiv);
+
+    // إضافة كومنت
+    const form = document.createElement("div");
+    form.style.cssText = "padding:10px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:center;position:sticky;bottom:42px;background:#000;";
+    form.innerHTML = `
+      <input id="twCommentInput" placeholder="ردك..." style="flex:1;background:#1a1a1a;border:1px solid #2d3748;border-radius:20px;padding:8px 12px;color:#fff;font-size:12px;direction:rtl;outline:none;">
+      <button onclick="twPostComment('${tweetId}')" style="background:#1da1f2;border:none;color:#fff;padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;">رد</button>`;
+    content.appendChild(form);
+  });
+}
+
+function twPostComment(tweetId) {
+  const input = document.getElementById("twCommentInput");
+  const text = input.value.trim();
+  if(!text) return;
+  const cId = "c_"+Date.now();
+  db.ref("tweets/"+tweetId+"/comments/"+cId).set({
+    uid: playerUID, name: playerName,
+    figure: playerFigure, gender: playerGender,
+    customAvatar: playerCustomAvatar||null,
+    text, time: Date.now()
+  });
+  input.value = "";
+  twOpenComments(tweetId);
+}
+
+// ====== PROFILE ======
+function twLoadProfile(uid) {
+  const content = document.getElementById("twContent");
+  content.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">جاري التحميل...</div>';
+
+  const hdr = document.getElementById("twHeader");
+  if(uid === playerUID) {
+    hdr.innerHTML = `<span style="font-size:15px;font-weight:bold;color:#fff;">${playerName}</span>`;
+  } else {
+    hdr.innerHTML = `<button class="tw-header-back" onclick="twGoHome()">❮</button><span style="font-size:14px;font-weight:bold;color:#fff;">الملف الشخصي</span>`;
+  }
+
+  db.ref("players/"+uid).once("value").then(async snap => {
+    const data = snap.val()||{};
+    const fig = data.figure||(data.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+    const av  = data.customAvatar || getAvatarUrl(fig, data.gender||"male");
+    const followers = data.twFollowers ? Object.keys(data.twFollowers).length : 0;
+    const following = data.twFollowing ? Object.keys(data.twFollowing).length : 0;
+    const isMe = uid===playerUID;
+    const isFollowing = data.twFollowers && data.twFollowers[playerUID];
+
+    content.innerHTML = "";
+
+    // Cover
+    const cover = document.createElement("div");
+    cover.className = "tw-profile-cover";
+    cover.style.background = data.twCover || "linear-gradient(135deg,#1da1f2,#0d8bd9)";
+    content.appendChild(cover);
+
+    // Header
+    const ph = document.createElement("div");
+    ph.className = "tw-profile-header";
+    ph.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="tw-profile-avatar-wrap">
+          <img class="tw-profile-avatar" src="${av}" onerror="this.style.display='none'">
+        </div>
+        ${isMe
+          ? `<button class="tw-follow-btn" onclick="twEditBio()">تعديل الملف</button>`
+          : `<button class="tw-follow-btn ${isFollowing?'following':'follow'}" onclick="twToggleFollow('${uid}',this)">${isFollowing?'متابَع':'متابعة'}</button>`
+        }
+      </div>
+      <div class="tw-profile-name">${data.name||"لاعب"}</div>
+      <div class="tw-profile-handle" id="twHandle_${uid}">@${(data.name||"user").toLowerCase().replace(/\s/g,"")}</div>
+      <div class="tw-profile-bio">${data.twBio||""}</div>
+      <div class="tw-profile-stats">
+        <span class="tw-stat"><b>${following}</b> متابَع</span>
+        <span class="tw-stat"><b>${followers}</b> متابِع</span>
+      </div>`;
+    content.appendChild(ph);
+
+    // بوستاته
+    const postsTitle = document.createElement("div");
+    postsTitle.style.cssText = "padding:10px 14px;font-size:13px;font-weight:bold;color:#fff;border-bottom:1px solid #1a1a1a;";
+    postsTitle.textContent = "التغريدات";
+    content.appendChild(postsTitle);
+
+    db.ref("tweets").orderByChild("authorUID").equalTo(uid).once("value").then(snap2 => {
+      if(!snap2.exists()) {
+        const empty = document.createElement("div");
+        empty.style.cssText = "text-align:center;color:#555;padding:30px;font-size:12px;";
+        empty.textContent = "لا توجد تغريدات بعد";
+        content.appendChild(empty);
+        return;
+      }
+      Object.values(snap2.val()).sort((a,b)=>b.time-a.time).forEach(tw => twRenderPost(tw, content));
+    });
+  });
+}
+
+// ====== FOLLOW ======
+function twToggleFollow(uid, btn) {
+  const ref = db.ref("players/"+uid+"/twFollowers/"+playerUID);
+  ref.once("value").then(snap => {
+    if(snap.exists()) {
+      ref.remove();
+      db.ref("players/"+playerUID+"/twFollowing/"+uid).remove();
+      btn.textContent = "متابعة";
+      btn.classList.remove("following");
+      btn.classList.add("follow");
+    } else {
+      ref.set(true);
+      db.ref("players/"+playerUID+"/twFollowing/"+uid).set(true);
+      btn.textContent = "متابَع";
+      btn.classList.add("following");
+      btn.classList.remove("follow");
+      toast("✅ تم المتابعة","#1da1f2");
+    }
+  });
+}
+
+// ====== EDIT BIO ======
+function twEditBio() {
+  const bio = prompt("اكتب Bio للـ X:", "");
+  if(bio===null) return;
+  db.ref("players/"+playerUID).update({ twBio: bio.trim() });
+  twLoadProfile(playerUID);
+}
+
+// ====== SEARCH ======
+function twLoadSearch() {
+  const content = document.getElementById("twContent");
+  content.innerHTML = `
+    <div style="padding:10px;">
+      <input id="twSearchInput" class="tw-search-input" placeholder="🔍 ابحث عن لاعب..." oninput="twDoSearch(this.value)">
+    </div>
+    <div id="twSearchResults"></div>`;
+}
+
+function twDoSearch(q) {
+  const res = document.getElementById("twSearchResults");
+  if(!q||q.length<2) { res.innerHTML=""; return; }
+  db.ref("players").orderByChild("name").startAt(q).endAt(q+"\uf8ff").limitToFirst(10).once("value").then(snap => {
+    res.innerHTML = "";
+    if(!snap.exists()) { res.innerHTML='<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا نتائج</div>'; return; }
+    Object.values(snap.val()).forEach(p => {
+      const fig = p.figure||(p.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+      const av = p.customAvatar || getAvatarUrl(fig, p.gender||"male");
+      const uid = Object.keys(snap.val()).find(k=>snap.val()[k].name===p.name);
+      const item = document.createElement("div");
+      item.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1a1a1a;cursor:pointer;";
+      item.innerHTML = `<img src="${av}" style="width:38px;height:38px;border-radius:50%;image-rendering:pixelated;" onerror="this.style.display='none'">
+        <div><div style="font-size:13px;font-weight:bold;color:#fff;">${p.name}</div></div>`;
+      item.onclick = () => twGoProfile(uid);
+      res.appendChild(item);
+    });
+  });
+}
+
+// ====== NOTIFICATIONS ======
+function twLoadNotif() {
+  const content = document.getElementById("twContent");
+  content.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">جاري التحميل...</div>';
+  db.ref("players/"+playerUID+"/notifications").orderByChild("time").limitToLast(20).once("value").then(snap => {
+    content.innerHTML = "";
+    if(!snap.exists()) {
+      content.innerHTML = '<div style="text-align:center;color:#555;padding:40px;font-size:13px;">لا توجد إشعارات</div>';
+      return;
+    }
+    Object.values(snap.val()).sort((a,b)=>b.time-a.time).forEach(n => {
+      const item = document.createElement("div");
+      item.style.cssText = "padding:12px 14px;border-bottom:1px solid #1a1a1a;display:flex;gap:10px;align-items:flex-start;cursor:pointer;";
+      item.innerHTML = `<span style="font-size:20px;">${n.icon||"🔔"}</span>
+        <div><div style="font-size:12px;color:#e7e9ea;">${n.text||""}</div>
+        <div style="font-size:10px;color:#555;margin-top:2px;">${timeAgo(n.time)}</div></div>`;
+      if(n.fromUID) item.onclick = () => twGoProfile(n.fromUID);
+      content.appendChild(item);
+    });
+  });
+}
+
+// ====== COMPOSE ======
+function twOpenCompose() {
+  twComposeImgUrl = null;
   document.getElementById("tweetInput").value = "";
   document.getElementById("tweetCharCount").textContent = "0 / 280";
+  document.getElementById("twImgPreview").innerHTML = "";
+  // حدّث أفاتار
+  const fig = playerFigure||DEFAULT_FIGURE_MALE;
+  const av = playerCustomAvatar||getAvatarUrl(fig,playerGender||"male");
+  const el = document.getElementById("twComposeAvatar");
+  if(el) el.src = av;
   document.getElementById("newTweetOverlay").classList.add("open");
   document.getElementById("tweetInput").oninput = function() {
     document.getElementById("tweetCharCount").textContent = this.value.length + " / 280";
   };
+  document.getElementById("tweetInput").focus();
+}
+
+function twAttachImage(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024) { toast("الصورة كبيرة جداً!","#dc3545"); return; }
+  toast("⏳ جاري رفع الصورة...","#1da1f2");
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const fd = new FormData(); fd.append('image', base64);
+    fetch('https://api.imgbb.com/1/upload?key='+IMGBB_KEY, {method:'POST',body:fd})
+      .then(r=>r.json()).then(data => {
+        if(data.success) {
+          twComposeImgUrl = data.data.url;
+          document.getElementById("twImgPreview").innerHTML =
+            `<img src="${twComposeImgUrl}" style="width:100%;border-radius:10px;max-height:120px;object-fit:cover;">`;
+          toast("✅ تم رفع الصورة","#28a745");
+        }
+      }).catch(()=>toast("خطأ في الرفع","#dc3545"));
+  };
+  reader.readAsDataURL(file);
+  event.target.value="";
 }
 
 function closeNewTweet() { document.getElementById("newTweetOverlay").classList.remove("open"); }
@@ -1362,22 +1697,24 @@ function newTweetOverlayClick(e) { if(e.target===document.getElementById("newTwe
 
 function postTweet() {
   const text = document.getElementById("tweetInput").value.trim();
-  if(!text) { toast("اكتب حاجة الأول!", "#e67e00"); return; }
-  const tweetId = "tw_" + Date.now();
+  if(!text && !twComposeImgUrl) { toast("اكتب حاجة أو ارفع صورة!","#e67e00"); return; }
+  const tweetId = "tw_"+Date.now();
   db.ref("tweets/"+tweetId).set({
     id: tweetId,
     authorUID: playerUID,
     authorName: playerName,
     figure: playerFigure,
     gender: playerGender,
-    customAvatar: playerCustomAvatar || null,
-    text,
+    customAvatar: playerCustomAvatar||null,
+    text: text||"",
+    imgUrl: twComposeImgUrl||null,
     time: Date.now(),
-    likes: {}
+    likes:{}, retweets:{}, comments:{}
   });
-  toast("🚀 تم نشر التغريدة!", "#1da1f2");
+  toast("🚀 تم النشر!","#1da1f2");
   closeNewTweet();
-  loadTwitterFeed();
+  if(twCurrentPage==="home") twLoadHome();
+  else if(twCurrentPage==="profile") twLoadProfile(playerUID);
 }
 
 // ====== ALBUM ======

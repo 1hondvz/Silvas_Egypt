@@ -616,3 +616,119 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
   display:block;
 }
 .chat-img:hover { transform:scale(1.03); border-color:#6c5ce7; }
+
+/* ===== TWITTER / X ===== */
+.tw-header {
+  background:#000; padding:10px 14px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; border-bottom:1px solid #2d3748;
+  color:#fff; position:relative; min-height:44px;
+}
+.tw-header-back {
+  position:absolute; right:12px;
+  background:none; border:none; color:#fff; font-size:18px; cursor:pointer;
+}
+.tw-content {
+  flex:1; overflow-y:auto; background:#000;
+}
+/* بار تحت */
+.tw-bottom-bar {
+  display:flex; background:#000;
+  border-top:1px solid #2d3748; flex-shrink:0;
+}
+.tw-bar-btn {
+  flex:1; padding:10px 0; background:none; border:none;
+  color:#777; font-size:20px; cursor:pointer; transition:0.2s;
+  display:flex; align-items:center; justify-content:center;
+}
+.tw-bar-btn.active { color:#1da1f2; }
+.tw-bar-btn:hover { color:#fff; }
+/* زرار نشر عائم */
+.tw-compose-btn {
+  position:absolute; bottom:52px; left:12px;
+  width:48px; height:48px; border-radius:50%;
+  background:#1da1f2; border:none; color:#fff;
+  font-size:20px; cursor:pointer;
+  box-shadow:0 4px 15px rgba(29,161,242,0.4);
+  display:flex; align-items:center; justify-content:center;
+  transition:0.2s; z-index:10;
+}
+.tw-compose-btn:hover { background:#0d8bd9; transform:scale(1.05); }
+
+/* تغريدة */
+.tw-post {
+  padding:12px 14px; border-bottom:1px solid #1a1a1a;
+  background:#000;
+}
+.tw-post:hover { background:#0a0a0a; }
+.tw-post-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.tw-avatar {
+  width:38px; height:38px; border-radius:50%;
+  object-fit:cover; image-rendering:pixelated;
+  flex-shrink:0; cursor:pointer; border:2px solid #1a1a1a;
+}
+.tw-post-meta { flex:1; }
+.tw-post-name { font-size:13px; font-weight:bold; color:#fff; cursor:pointer; }
+.tw-post-name:hover { text-decoration:underline; }
+.tw-post-handle { font-size:11px; color:#666; }
+.tw-post-text { font-size:13px; color:#e7e9ea; line-height:1.5; margin-bottom:8px; direction:rtl; }
+.tw-post-img {
+  width:100%; border-radius:12px; object-fit:cover;
+  max-height:200px; cursor:pointer; margin-bottom:8px;
+  border:1px solid #2d3748;
+}
+.tw-post-actions { display:flex; gap:20px; }
+.tw-action {
+  background:none; border:none; color:#666;
+  font-size:12px; cursor:pointer; display:flex;
+  align-items:center; gap:4px; transition:0.2s; padding:4px 0;
+}
+.tw-action:hover { color:#1da1f2; }
+.tw-action.liked { color:#f91880; }
+.tw-action.retweeted { color:#00ba7c; }
+
+/* صفحة البروفايل */
+.tw-profile-cover {
+  width:100%; height:90px; object-fit:cover;
+  background:linear-gradient(135deg,#1da1f2,#0d8bd9);
+  display:block; flex-shrink:0;
+}
+.tw-profile-header {
+  background:#000; padding:0 14px 12px; border-bottom:1px solid #1a1a1a;
+  flex-shrink:0;
+}
+.tw-profile-avatar-wrap { position:relative; margin-top:-28px; margin-bottom:8px; display:inline-block; }
+.tw-profile-avatar {
+  width:56px; height:56px; border-radius:50%;
+  border:3px solid #000; object-fit:cover; image-rendering:pixelated;
+  display:block;
+}
+.tw-profile-name { font-size:15px; font-weight:bold; color:#fff; }
+.tw-profile-handle { font-size:12px; color:#666; margin-bottom:6px; }
+.tw-profile-bio { font-size:12px; color:#e7e9ea; margin-bottom:8px; direction:rtl; }
+.tw-profile-stats { display:flex; gap:16px; }
+.tw-stat { font-size:12px; color:#666; cursor:pointer; }
+.tw-stat b { color:#fff; }
+.tw-stat:hover { text-decoration:underline; }
+.tw-follow-btn {
+  float:left; background:transparent; border:1px solid #536471;
+  color:#fff; padding:6px 14px; border-radius:20px;
+  font-size:13px; font-weight:bold; cursor:pointer; margin-top:-4px;
+}
+.tw-follow-btn.following { background:transparent; border-color:#536471; }
+.tw-follow-btn.follow { background:#fff; color:#000; border-color:#fff; }
+
+/* صفحة البحث */
+.tw-search-input {
+  width:100%; padding:9px 14px; background:#1a1a1a;
+  border:1px solid #2d3748; border-radius:20px;
+  color:#fff; font-size:13px; direction:rtl; outline:none;
+}
+.tw-search-input:focus { border-color:#1da1f2; }
+
+/* نافذة كومبوز */
+#newTweetPanel {
+  background:#000; border:1px solid #2d3748;
+  border-radius:16px; width:100%; max-width:360px; padding:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.9); animation:popIn 0.2s ease;
+}
