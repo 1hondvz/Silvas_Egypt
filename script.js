@@ -1201,15 +1201,17 @@ let gameScore = 0;
 let gamePhase = "show"; // show | input
 
 function openPhone() {
-  // حدّث الساعة
   updatePhoneTime();
   setInterval(updatePhoneTime, 30000);
-  // حمّل الخلفية المحفوظة
   db.ref("players/"+playerUID+"/phoneWallpaper").once("value").then(snap => {
     if(snap.exists()) applyWallpaper(snap.val(), false);
   });
+  db.ref("players/"+playerUID+"/phoneLang").once("value").then(snap => {
+    if(snap.exists()) applyPhoneLang(snap.val(), false);
+  });
   document.getElementById("phoneOverlay").classList.add("open");
   goPhoneHome();
+  initPhoneDrag();
 }
 
 function closePhone() {
@@ -1250,10 +1252,186 @@ function openPhoneApp(app) {
   } else if(app === "game") {
     document.getElementById("phoneGame").classList.add("active");
     startGame();
+  } else if(app === "music") {
+    document.getElementById("phoneMusic").classList.add("active");
+    openMusicApp();
   }
 }
 
 function closePhoneApp() { goPhoneHome(); }
+
+// ====== DRAG PHONE ======
+function initPhoneDrag() {
+  const device = document.getElementById("phoneDevice");
+  const overlay = document.getElementById("phoneOverlay");
+  if(!device || device._dragInit) return;
+  device._dragInit = true;
+  let dragging=false, startX=0, startY=0, origX=0, origY=0;
+  device.addEventListener("mousedown", e => {
+    if(e.target.closest("button,input,textarea,select,label,img,a")) return;
+    dragging=true;
+    startX=e.clientX; startY=e.clientY;
+    const rect=device.getBoundingClientRect();
+    origX=rect.left; origY=rect.top;
+    device.style.position="fixed";
+    device.style.margin="0";
+    device.style.left=origX+"px"; device.style.top=origY+"px";
+    device.style.transform="none";
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", e => {
+    if(!dragging) return;
+    device.style.left=(origX+(e.clientX-startX))+"px";
+    device.style.top=(origY+(e.clientY-startY))+"px";
+  });
+  document.addEventListener("mouseup", ()=>{ dragging=false; });
+  // touch
+  device.addEventListener("touchstart", e => {
+    if(e.target.closest("button,input,textarea,select,label,img,a")) return;
+    dragging=true;
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+    const rect=device.getBoundingClientRect();
+    origX=rect.left; origY=rect.top;
+    device.style.position="fixed";
+    device.style.margin="0";
+    device.style.left=origX+"px"; device.style.top=origY+"px";
+    device.style.transform="none";
+  }, {passive:true});
+  document.addEventListener("touchmove", e => {
+    if(!dragging) return;
+    device.style.left=(origX+(e.touches[0].clientX-startX))+"px";
+    device.style.top=(origY+(e.touches[0].clientY-startY))+"px";
+  }, {passive:true});
+  document.addEventListener("touchend", ()=>{ dragging=false; });
+}
+
+// ====== PHONE LANGUAGE ======
+let phoneLang = "ar";
+const PHONE_STRINGS = {
+  ar: {
+    settings:"الإعدادات", wallpaper:"🖼️ خلفية الشاشة", lang:"🌐 اللغة",
+    twitter:"Silvas X", photos:"الصور", game:"لعبة", music:"أغاني",
+    home:"الهوم", upload:"+ رفع", search:"بحث", notifications:"الإشعارات",
+    myProfile:"ملفي", editProfile:"تعديل الملف", follow:"متابعة", following:"متابَع",
+    posts:"التغريدات", playlist:"قائمة التشغيل", chooseTrack:"اختر أغنية",
+    gameTitle:"لعبة الأرقام", gameInstr:"احفظ الرقم التالي ثم اكتبه!", gameCheck:"تحقق ✓", gameNew:"بداية جديدة 🔄",
+    tweetsTitle:"التغريدات", noTweets:"لا توجد تغريدات بعد 🐦"
+  },
+  en: {
+    settings:"Settings", wallpaper:"🖼️ Wallpaper", lang:"🌐 Language",
+    twitter:"Silvas X", photos:"Photos", game:"Game", music:"Music",
+    home:"Home", upload:"+ Upload", search:"Search", notifications:"Notifications",
+    myProfile:"My Profile", editProfile:"Edit Profile", follow:"Follow", following:"Following",
+    posts:"Posts", playlist:"Playlist", chooseTrack:"Choose a track",
+    gameTitle:"Number Game", gameInstr:"Memorize the number then type it!", gameCheck:"Check ✓", gameNew:"New Game 🔄",
+    tweetsTitle:"Posts", noTweets:"No tweets yet 🐦"
+  }
+};
+
+function setPhoneLang(lang) {
+  phoneLang = lang;
+  db.ref("players/"+playerUID).update({ phoneLang: lang });
+  applyPhoneLang(lang, true);
+}
+
+function applyPhoneLang(lang, save) {
+  phoneLang = lang;
+  const s = PHONE_STRINGS[lang] || PHONE_STRINGS.ar;
+  // app names
+  document.querySelectorAll("[data-lang]").forEach(el => {
+    const parts = el.getAttribute("data-lang").split("|");
+    el.textContent = lang==="en" ? (parts[1]||parts[0]) : parts[0];
+  });
+  // أزرار اللغة
+  const btnAr = document.getElementById("langBtnAr");
+  const btnEn = document.getElementById("langBtnEn");
+  if(btnAr) { btnAr.style.background=lang==="ar"?"#6c5ce7":"#2d3748"; btnAr.style.color=lang==="ar"?"#fff":"#aaa"; }
+  if(btnEn) { btnEn.style.background=lang==="en"?"#6c5ce7":"#2d3748"; btnEn.style.color=lang==="en"?"#fff":"#aaa"; }
+  // عناوين ثابتة
+  const ids = { settingsTitle:"settings", stWallpaperTitle:"wallpaper", stLangTitle:"lang",
+    musicTitle:"music", musicPlaylistTitle:"playlist", gameAppTitle:"gameTitle",
+    gameInstr:"gameInstr", gameCheckBtn:"gameCheck", gameNewBtn:"gameNew" };
+  Object.entries(ids).forEach(([id,key]) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = s[key]||"";
+  });
+}
+
+// ====== TWITTER NOTIFICATIONS (منفصلة عن اللعبة) ======
+function sendTwNotification(toUID, type, fromName, tweetId) {
+  const notifId = "twn_"+Date.now();
+  const texts = { like: fromName+" أعجب بتغريدتك ❤️", retweet: fromName+" أعاد نشر تغريدتك 🔁", comment: fromName+" علّق على تغريدتك 💬", follow: fromName+" بدأ متابعتك 👥" };
+  const icons = { like:"❤️", retweet:"🔁", comment:"💬", follow:"👥" };
+  db.ref("players/"+toUID+"/twNotifs/"+notifId).set({
+    id:notifId, type, icon:icons[type]||"🔔",
+    text:texts[type]||"إشعار جديد",
+    fromUID:playerUID, fromName, tweetId:tweetId||null,
+    time:Date.now(), read:false
+  });
+}
+
+// ====== MUSIC APP ======
+const MUSIC_PLAYLIST = [
+  { title:"Blinding Lights",    artist:"The Weeknd",   src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+  { title:"Shape of You",       artist:"Ed Sheeran",   src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+  { title:"Stay",               artist:"The Kid LAROI", src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+  { title:"Levitating",         artist:"Dua Lipa",     src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+  { title:"Peaches",            artist:"Justin Bieber",src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+];
+let musicAudio = null;
+let musicCurrentIdx = 0;
+let musicPlaying = false;
+
+function openMusicApp() {
+  renderPlaylist();
+  loadTrack(0, false);
+}
+
+function renderPlaylist() {
+  const list = document.getElementById("musicPlaylist");
+  if(!list) return;
+  list.innerHTML = "";
+  MUSIC_PLAYLIST.forEach((t,i) => {
+    const item = document.createElement("div");
+    item.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #1a1a1a;cursor:pointer;background:${i===musicCurrentIdx?"#1a1a2e":"transparent"};border-radius:8px;`;
+    item.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#fd79a8,#e84393);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${i===musicCurrentIdx&&musicPlaying?"▶":"🎵"}</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.title}</div>
+      <div style="font-size:11px;color:#aaa;">${t.artist}</div></div>`;
+    item.onclick = () => loadTrack(i, true);
+    list.appendChild(item);
+  });
+}
+
+function loadTrack(idx, autoPlay) {
+  musicCurrentIdx = idx;
+  const t = MUSIC_PLAYLIST[idx];
+  document.getElementById("musicSongName").textContent = t.title;
+  document.getElementById("musicArtist").textContent = t.artist;
+  if(musicAudio) { musicAudio.pause(); musicAudio = null; }
+  musicAudio = new Audio(t.src);
+  musicAudio.ontimeupdate = () => {
+    if(!musicAudio.duration) return;
+    document.getElementById("musicProgress").value = (musicAudio.currentTime/musicAudio.duration)*100;
+    document.getElementById("musicCurrentTime").textContent = fmtTime(musicAudio.currentTime);
+    document.getElementById("musicDuration").textContent = fmtTime(musicAudio.duration);
+  };
+  musicAudio.onended = () => musicNext();
+  document.getElementById("musicProgress").oninput = function() {
+    if(musicAudio) musicAudio.currentTime = (this.value/100)*musicAudio.duration;
+  };
+  if(autoPlay) { musicAudio.play(); musicPlaying=true; document.getElementById("musicPlayBtn").textContent="⏸"; }
+  else { musicPlaying=false; document.getElementById("musicPlayBtn").textContent="▶"; }
+  renderPlaylist();
+}
+
+function musicTogglePlay() {
+  if(!musicAudio) return;
+  if(musicPlaying) { musicAudio.pause(); musicPlaying=false; document.getElementById("musicPlayBtn").textContent="▶"; }
+  else { musicAudio.play(); musicPlaying=true; document.getElementById("musicPlayBtn").textContent="⏸"; }
+}
+function musicNext() { loadTrack((musicCurrentIdx+1)%MUSIC_PLAYLIST.length, musicPlaying); }
+function musicPrev() { loadTrack((musicCurrentIdx-1+MUSIC_PLAYLIST.length)%MUSIC_PLAYLIST.length, musicPlaying); }
+function fmtTime(s) { return Math.floor(s/60)+":"+(Math.floor(s%60)).toString().padStart(2,"0"); }
 
 // ====== WALLPAPER ======
 function renderWallpaperGrid() {
@@ -1410,6 +1588,10 @@ function twToggleLike(tweetId, btn) {
       ref.set(true);
       btn.classList.add("liked");
       btn.innerHTML = "❤️ " + (count+1);
+      // إشعار تويتر
+      db.ref("tweets/"+tweetId+"/authorUID").once("value").then(s => {
+        if(s.val() && s.val()!==playerUID) sendTwNotification(s.val(),"like",playerName,tweetId);
+      });
     }
   });
 }
@@ -1500,6 +1682,10 @@ function twPostComment(tweetId) {
     customAvatar: playerCustomAvatar||null,
     text, time: Date.now()
   });
+  // إشعار تويتر
+  db.ref("tweets/"+tweetId+"/authorUID").once("value").then(s => {
+    if(s.val() && s.val()!==playerUID) sendTwNotification(s.val(),"comment",playerName,tweetId);
+  });
   input.value = "";
   twOpenComments(tweetId);
 }
@@ -1532,14 +1718,14 @@ function twLoadProfile(uid) {
     const ph = document.createElement("div");
     ph.className = "tw-profile-header";
     ph.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div class="tw-profile-avatar-wrap">
-          <img class="tw-profile-avatar" src="${av}" onerror="this.style.display='none'">
-        </div>
+      <div style="display:flex;justify-content:flex-end;padding:6px 0 10px;">
         ${isMe
           ? `<button class="tw-follow-btn" onclick="twEditBio()">تعديل الملف</button>`
           : `<button class="tw-follow-btn ${isFollowing?'following':'follow'}" onclick="twToggleFollow('${uid}',this)">${isFollowing?'متابَع':'متابعة'}</button>`
         }
+      </div>
+      <div class="tw-profile-avatar-wrap">
+        <img class="tw-profile-avatar" src="${av}" onerror="this.style.display='none'">
       </div>
       <div class="tw-profile-name">${data.name||"لاعب"}</div>
       <div class="tw-profile-handle" id="twHandle_${uid}">@${(data.name||"user").toLowerCase().replace(/\s/g,"")}</div>
@@ -1586,6 +1772,7 @@ function twToggleFollow(uid, btn) {
       btn.classList.add("following");
       btn.classList.remove("follow");
       toast("✅ تم المتابعة","#1da1f2");
+      sendTwNotification(uid,"follow",playerName,null);
     }
   });
 }
@@ -1628,11 +1815,11 @@ function twDoSearch(q) {
   });
 }
 
-// ====== NOTIFICATIONS ======
+// ====== TWITTER NOTIFICATIONS (tab منفصل) ======
 function twLoadNotif() {
   const content = document.getElementById("twContent");
   content.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">جاري التحميل...</div>';
-  db.ref("players/"+playerUID+"/notifications").orderByChild("time").limitToLast(20).once("value").then(snap => {
+  db.ref("players/"+playerUID+"/twNotifs").orderByChild("time").limitToLast(30).once("value").then(snap => {
     content.innerHTML = "";
     if(!snap.exists()) {
       content.innerHTML = '<div style="text-align:center;color:#555;padding:40px;font-size:13px;">لا توجد إشعارات</div>';
@@ -1640,12 +1827,18 @@ function twLoadNotif() {
     }
     Object.values(snap.val()).sort((a,b)=>b.time-a.time).forEach(n => {
       const item = document.createElement("div");
-      item.style.cssText = "padding:12px 14px;border-bottom:1px solid #1a1a1a;display:flex;gap:10px;align-items:flex-start;cursor:pointer;";
-      item.innerHTML = `<span style="font-size:20px;">${n.icon||"🔔"}</span>
-        <div><div style="font-size:12px;color:#e7e9ea;">${n.text||""}</div>
-        <div style="font-size:10px;color:#555;margin-top:2px;">${timeAgo(n.time)}</div></div>`;
-      if(n.fromUID) item.onclick = () => twGoProfile(n.fromUID);
+      item.style.cssText = "padding:12px 14px;border-bottom:1px solid #1a1a1a;display:flex;gap:10px;align-items:flex-start;cursor:pointer;" + (n.read?"":"background:#0a0a12;");
+      item.innerHTML = `<span style="font-size:22px;flex-shrink:0;">${n.icon||"🔔"}</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;color:#e7e9ea;">${n.text||""}</div>
+          <div style="font-size:10px;color:#555;margin-top:2px;">${timeAgo(n.time)}</div>
+        </div>`;
+      if(n.fromUID) item.onclick = () => { twGoProfile(n.fromUID); db.ref("players/"+playerUID+"/twNotifs/"+n.id+"/read").set(true); };
       content.appendChild(item);
+    });
+    // اجعلهم مقروءين
+    db.ref("players/"+playerUID+"/twNotifs").once("value").then(s => {
+      if(s.exists()) Object.keys(s.val()).forEach(k => { if(!s.val()[k].read) db.ref("players/"+playerUID+"/twNotifs/"+k+"/read").set(true); });
     });
   });
 }
@@ -1730,7 +1923,7 @@ function loadAlbum() {
       const img = document.createElement("img");
       img.src = photo.url;
       img.style.cssText = "width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;";
-      img.onclick = () => window.open(photo.url, "_blank");
+      img.onclick = () => openImgLightbox(photo.url);
       grid.appendChild(img);
     });
   });

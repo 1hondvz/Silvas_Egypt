@@ -732,3 +732,17 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
   border-radius:16px; width:100%; max-width:360px; padding:16px;
   box-shadow:0 20px 60px rgba(0,0,0,0.9); animation:popIn 0.2s ease;
 }
+
+/* ===== MUSIC APP ===== */
+#musicContent { padding:0; }
+#musicNowPlaying { background:#0a0a0a; }
+#musicAlbumArt {
+  animation: spinRecord 4s linear infinite paused;
+}
+#musicAlbumArt.playing { animation-play-state: running; }
+@keyframes spinRecord { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+#musicProgress { -webkit-appearance:none; appearance:none; height:3px; border-radius:2px; background:#2d3748; outline:none; }
+#musicProgress::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#e84393; cursor:pointer; }
+
+/* drag cursor */
+#phoneFrame { cursor:default; }

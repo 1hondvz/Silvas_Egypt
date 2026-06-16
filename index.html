@@ -199,19 +199,23 @@
           <div id="phoneAppsGrid">
             <div class="phone-app" onclick="openPhoneApp('settings')">
               <div class="phone-app-icon">⚙️</div>
-              <div class="phone-app-name">الإعدادات</div>
+              <div class="phone-app-name" data-lang="الإعدادات|Settings">الإعدادات</div>
             </div>
             <div class="phone-app" onclick="openPhoneApp('twitter')">
               <div class="phone-app-icon" style="background:linear-gradient(135deg,#1da1f2,#0d8bd9);font-size:22px;font-weight:bold;color:#fff;font-family:serif;">𝕏</div>
-              <div class="phone-app-name">Silvas X</div>
+              <div class="phone-app-name" data-lang="Silvas X|Silvas X">Silvas X</div>
             </div>
             <div class="phone-app" onclick="openPhoneApp('album')">
               <div class="phone-app-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);">🖼️</div>
-              <div class="phone-app-name">الصور</div>
+              <div class="phone-app-name" data-lang="الصور|Photos">الصور</div>
             </div>
             <div class="phone-app" onclick="openPhoneApp('game')">
               <div class="phone-app-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">🎮</div>
-              <div class="phone-app-name">لعبة</div>
+              <div class="phone-app-name" data-lang="لعبة|Game">لعبة</div>
+            </div>
+            <div class="phone-app" onclick="openPhoneApp('music')">
+              <div class="phone-app-icon" style="background:linear-gradient(135deg,#fd79a8,#e84393);">🎵</div>
+              <div class="phone-app-name" data-lang="أغاني|Music">أغاني</div>
             </div>
           </div>
         </div>
@@ -220,11 +224,16 @@
         <div id="phoneSettings" class="phone-page">
           <div class="phone-app-header">
             <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
-            <span>الإعدادات</span>
+            <span id="settingsTitle">الإعدادات</span>
           </div>
           <div class="phone-app-content">
-            <div class="settings-section-title">🖼️ خلفية الشاشة</div>
+            <div class="settings-section-title" id="stWallpaperTitle">🖼️ خلفية الشاشة</div>
             <div id="wallpaperGrid" class="wallpaper-grid"></div>
+            <div class="settings-section-title" style="margin-top:14px;" id="stLangTitle">🌐 اللغة</div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button onclick="setPhoneLang('ar')" id="langBtnAr" style="flex:1;padding:10px;border-radius:10px;background:#6c5ce7;color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:bold;">العربية</button>
+              <button onclick="setPhoneLang('en')" id="langBtnEn" style="flex:1;padding:10px;border-radius:10px;background:#2d3748;color:#aaa;border:none;cursor:pointer;font-size:13px;">English</button>
+            </div>
           </div>
         </div>
 
@@ -273,15 +282,41 @@
         <div id="phoneGame" class="phone-page">
           <div class="phone-app-header" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
             <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
-            <span>لعبة الأرقام</span>
+            <span id="gameAppTitle">لعبة الأرقام</span>
             <span id="gameScore" style="font-size:13px;font-weight:bold;">نقاط: 0</span>
           </div>
           <div class="phone-app-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
-            <div style="font-size:14px;color:#aaa;">احفظ الرقم التالي ثم اكتبه!</div>
+            <div style="font-size:14px;color:#aaa;" id="gameInstr">احفظ الرقم التالي ثم اكتبه!</div>
             <div id="gameNumber" style="font-size:48px;font-weight:bold;color:#4facfe;min-height:60px;"></div>
             <input id="gameInput" type="number" placeholder="ادخل الرقم" style="width:80%;padding:10px;border-radius:10px;border:2px solid #4facfe;background:#1a1a3e;color:#fff;font-size:18px;text-align:center;">
-            <button onclick="checkGameAnswer()" style="background:linear-gradient(135deg,#4facfe,#00f2fe);border:none;color:#fff;padding:10px 30px;border-radius:20px;cursor:pointer;font-size:15px;font-weight:bold;">تحقق ✓</button>
-            <button onclick="startGame()" style="background:#1a1a3e;border:1px solid #4facfe;color:#4facfe;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;">بداية جديدة 🔄</button>
+            <button onclick="checkGameAnswer()" style="background:linear-gradient(135deg,#4facfe,#00f2fe);border:none;color:#fff;padding:10px 30px;border-radius:20px;cursor:pointer;font-size:15px;font-weight:bold;" id="gameCheckBtn">تحقق ✓</button>
+            <button onclick="startGame()" style="background:#1a1a3e;border:1px solid #4facfe;color:#4facfe;padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;" id="gameNewBtn">بداية جديدة 🔄</button>
+          </div>
+        </div>
+
+        <!-- أغاني -->
+        <div id="phoneMusic" class="phone-page">
+          <div class="phone-app-header" style="background:linear-gradient(135deg,#fd79a8,#e84393);">
+            <button class="phone-back-btn" onclick="closePhoneApp()">❮</button>
+            <span id="musicTitle">أغاني</span>
+          </div>
+          <div class="phone-app-content" id="musicContent">
+            <div id="musicNowPlaying" style="text-align:center;padding:20px 10px;border-bottom:1px solid #1a1a1a;">
+              <div id="musicAlbumArt" style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#fd79a8,#e84393);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 8px 30px rgba(232,67,147,0.4);">🎵</div>
+              <div id="musicSongName" style="font-size:15px;font-weight:bold;color:#fff;margin-bottom:4px;">اختر أغنية</div>
+              <div id="musicArtist" style="font-size:12px;color:#aaa;margin-bottom:16px;">—</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:20px;">
+                <button onclick="musicPrev()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;">⏮</button>
+                <button onclick="musicTogglePlay()" id="musicPlayBtn" style="background:linear-gradient(135deg,#fd79a8,#e84393);border:none;color:#fff;width:52px;height:52px;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 4px 15px rgba(232,67,147,0.4);">▶</button>
+                <button onclick="musicNext()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;">⏭</button>
+              </div>
+              <input type="range" id="musicProgress" value="0" min="0" max="100" style="width:90%;margin-top:14px;accent-color:#e84393;">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;padding:0 5%;"><span id="musicCurrentTime">0:00</span><span id="musicDuration">0:00</span></div>
+            </div>
+            <div style="padding:10px;">
+              <div style="font-size:12px;color:#aaa;margin-bottom:8px;" id="musicPlaylistTitle">قائمة التشغيل</div>
+              <div id="musicPlaylist"></div>
+            </div>
           </div>
         </div>
       </div>
