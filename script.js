@@ -632,7 +632,10 @@ form.onsubmit=e=>{
 
 // ====== DAILY ======
 function claimDaily(){
-  if(Date.now()-lastDaily<86400000){toast("مرة كل 24 ساعة! ⏰","#e67e00");return;}
+  if(Date.now()-lastDaily<43200000){
+    const remaining=Math.ceil((43200000-(Date.now()-lastDaily))/3600000);
+    toast("باقي "+remaining+" ساعة ⏰","#e67e00");return;
+  }
   const g=Math.floor(Math.random()*100)+50,j=Math.floor(Math.random()*10)+5;lastDaily=Date.now();
   db.ref("players/"+playerUID).update({gold:gold+g,gems:gems+j,lastDaily});
   // إنجاز أول دخول
@@ -643,7 +646,10 @@ function claimDaily(){
 
 // ====== SPIN ======
 function spinWheel(){
-  if(Date.now()-lastSpin<86400000){toast("مرة كل 24 ساعة! ⏰","#e67e00");return;}
+  if(Date.now()-lastSpin<43200000){
+    const remaining=Math.ceil((43200000-(Date.now()-lastSpin))/3600000);
+    toast("باقي "+remaining+" ساعة ⏰","#e67e00");return;
+  }
   const prizes=[{gold:50,gems:0},{gold:100,gems:5},{gold:0,gems:10},{gold:200,gems:20},{gold:0,gems:50}];
   const p=prizes[Math.floor(Math.random()*prizes.length)];lastSpin=Date.now();
   db.ref("players/"+playerUID).update({gold:gold+p.gold,gems:gems+p.gems,lastSpin});
@@ -1233,20 +1239,18 @@ function renderWallpaperGrid() {
   const grid = document.getElementById("wallpaperGrid");
   grid.innerHTML = "";
   const wallpapers = [
-    // الصور اللي بعتها
-    { id:"img1", bg:"url(https://i.ibb.co/PxMWkzgb/wp1.jpg) center/cover no-repeat" },
-    { id:"img2", bg:"url(https://i.ibb.co/T3Bj9gkx/wp2.jpg) center/cover no-repeat" },
-    { id:"img3", bg:"url(https://i.ibb.co/HxhMPZ2K/wp3.jpg) center/cover no-repeat" },
-    { id:"img4", bg:"url(https://i.ibb.co/XJQD9k1g/wp4.jpg) center/cover no-repeat" },
-    // تدرجات لونية
-    { id:"grad1", bg:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)" },
-    { id:"grad2", bg:"linear-gradient(135deg,#f093fb 0%,#f5576c 100%)" },
-    { id:"grad3", bg:"linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" },
-    { id:"grad4", bg:"linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)" },
-    { id:"grad5", bg:"linear-gradient(135deg,#fa709a 0%,#fee140 100%)" },
-    { id:"grad6", bg:"linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)" },
-    { id:"grad7", bg:"linear-gradient(135deg,#0f0f23 0%,#1a1a3e 100%)" },
-    { id:"grad8", bg:"linear-gradient(135deg,#16213e 0%,#0f3460 100%)" },
+    { id:"grad1",  bg:"linear-gradient(135deg,#0f0f23 0%,#1a1a3e 100%)" },
+    { id:"grad2",  bg:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)" },
+    { id:"grad3",  bg:"linear-gradient(135deg,#f093fb 0%,#f5576c 100%)" },
+    { id:"grad4",  bg:"linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" },
+    { id:"grad5",  bg:"linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)" },
+    { id:"grad6",  bg:"linear-gradient(135deg,#fa709a 0%,#fee140 100%)" },
+    { id:"grad7",  bg:"linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)" },
+    { id:"grad8",  bg:"linear-gradient(135deg,#ffecd2 0%,#fcb69f 100%)" },
+    { id:"grad9",  bg:"linear-gradient(135deg,#16213e 0%,#0f3460 100%)" },
+    { id:"grad10", bg:"linear-gradient(135deg,#1a1a2e 0%,#e94560 100%)" },
+    { id:"grad11", bg:"linear-gradient(135deg,#0d0d0d 0%,#434343 100%)" },
+    { id:"grad12", bg:"linear-gradient(135deg,#093028 0%,#237a57 100%)" },
   ];
   wallpapers.forEach(wp => {
     const div = document.createElement("div");
