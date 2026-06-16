@@ -290,7 +290,47 @@ function openProfile(uid){
       blockBtn.textContent=isBlocked?"🔓 إلغاء الحظر":"🚫 حظر";
       blockBtn.onclick=()=>toggleBlock(uid,data.name);actionsEl.appendChild(blockBtn);
     } else {
-      // no color picker - badges use fixed colors
+      // اختيار لون الاسم من البطاقات الموجودة
+      const myGranted = data.grantedBadges || {};
+      const myBadges = GRANTABLE_BADGES.filter(b => myGranted[b.id]);
+      if(myBadges.length > 0) {
+        const colorRow = document.createElement("div");
+        colorRow.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;";
+
+        // زرار "بدون لون خاص"
+        const resetBtn = document.createElement("button");
+        resetBtn.className = "profile-admin-btn";
+        resetBtn.style.cssText = "border-color:#555;color:#aaa;";
+        resetBtn.textContent = "⬜ بدون لون";
+        resetBtn.onclick = () => {
+          playerNameColor = null;
+          db.ref("players/"+playerUID).update({ nameColor: null });
+          toast("تم إزالة اللون المخصص", "#636e72");
+          // تحديث الأزرار
+          colorRow.querySelectorAll("button").forEach(b => b.style.fontWeight = "normal");
+          resetBtn.style.fontWeight = "bold";
+        };
+        if(!playerNameColor) resetBtn.style.fontWeight = "bold";
+        colorRow.appendChild(resetBtn);
+
+        // زرار لكل بطاقة
+        myBadges.forEach(badge => {
+          const btn = document.createElement("button");
+          btn.className = "profile-admin-btn";
+          btn.style.cssText = `border-color:${badge.chatColor};color:${badge.chatColor};font-weight:${playerNameColor===badge.chatColor?"bold":"normal"};`;
+          btn.innerHTML = `<img src="${badge.img}" style="width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-left:4px;" onerror="this.style.display='none'"> ${badge.name}`;
+          btn.onclick = () => {
+            playerNameColor = badge.chatColor;
+            db.ref("players/"+playerUID).update({ nameColor: badge.chatColor });
+            toast(`✅ هتكتب بلون ${badge.name}`, "#28a745");
+            colorRow.querySelectorAll("button").forEach(b => b.style.fontWeight = "normal");
+            btn.style.fontWeight = "bold";
+          };
+          colorRow.appendChild(btn);
+        });
+
+        actionsEl.appendChild(colorRow);
+      }
     }
     // أزرار الأدمن
     const adminActEl=document.getElementById("profileAdminActions");adminActEl.innerHTML="";
@@ -856,6 +896,11 @@ function renderRoomPlayers() {
 function getNameColorFull(role, grantedBadges, nameColor) {
   if(role==="Owner") return ROLE_BADGES.Owner.chatColor;
   if(role==="ادمن") return ROLE_BADGES["ادمن"].chatColor;
+  // لو اللاعب اختار لون من بطاقاته، استخدمه
+  if(nameColor && grantedBadges &&
+    (grantedBadges.diamond||grantedBadges.gold_badge||grantedBadges.silver||grantedBadges.silvas_club)) {
+    return nameColor;
+  }
   if(grantedBadges&&grantedBadges.diamond) return GRANTABLE_BADGES.find(b=>b.id==="diamond").chatColor;
   if(grantedBadges&&grantedBadges.gold_badge) return GRANTABLE_BADGES.find(b=>b.id==="gold_badge").chatColor;
   if(grantedBadges&&grantedBadges.silvas_club) return GRANTABLE_BADGES.find(b=>b.id==="silvas_club").chatColor;
@@ -1216,20 +1261,23 @@ function closePhoneApp() { goPhoneHome(); }
 function renderWallpaperGrid() {
   const grid = document.getElementById("wallpaperGrid");
   grid.innerHTML = "";
-  // الخلفيات اللي بعتها (صور حقيقية)
-  const realWPs = [
-    { id:"real1", bg:"url(https://i.postimg.cc/PxMWkzgb/wp1.jpg) center/cover" },
-    { id:"real2", bg:"url(https://i.postimg.cc/T3Bj9gkx/wp2.jpg) center/cover" },
-    { id:"real3", bg:"url(https://i.postimg.cc/HxhMPZ2K/wp3.jpg) center/cover" },
-    { id:"real4", bg:"url(https://i.postimg.cc/XJQD9k1g/wp4.jpg) center/cover" },
-    { id:"grad1", bg:"linear-gradient(135deg,#667eea,#764ba2)" },
-    { id:"grad2", bg:"linear-gradient(135deg,#f093fb,#f5576c)" },
-    { id:"grad3", bg:"linear-gradient(135deg,#4facfe,#00f2fe)" },
-    { id:"grad4", bg:"linear-gradient(135deg,#43e97b,#38f9d7)" },
-    { id:"grad5", bg:"linear-gradient(135deg,#fa709a,#fee140)" },
-    { id:"grad6", bg:"linear-gradient(135deg,#a18cd1,#fbc2eb)" },
+  const wallpapers = [
+    // الصور اللي بعتها
+    { id:"img1", bg:"url(https://i.ibb.co/PxMWkzgb/wp1.jpg) center/cover no-repeat" },
+    { id:"img2", bg:"url(https://i.ibb.co/T3Bj9gkx/wp2.jpg) center/cover no-repeat" },
+    { id:"img3", bg:"url(https://i.ibb.co/HxhMPZ2K/wp3.jpg) center/cover no-repeat" },
+    { id:"img4", bg:"url(https://i.ibb.co/XJQD9k1g/wp4.jpg) center/cover no-repeat" },
+    // تدرجات لونية
+    { id:"grad1", bg:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)" },
+    { id:"grad2", bg:"linear-gradient(135deg,#f093fb 0%,#f5576c 100%)" },
+    { id:"grad3", bg:"linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" },
+    { id:"grad4", bg:"linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)" },
+    { id:"grad5", bg:"linear-gradient(135deg,#fa709a 0%,#fee140 100%)" },
+    { id:"grad6", bg:"linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)" },
+    { id:"grad7", bg:"linear-gradient(135deg,#0f0f23 0%,#1a1a3e 100%)" },
+    { id:"grad8", bg:"linear-gradient(135deg,#16213e 0%,#0f3460 100%)" },
   ];
-  realWPs.forEach(wp => {
+  wallpapers.forEach(wp => {
     const div = document.createElement("div");
     div.className = "wallpaper-item" + (phoneCurrentWallpaper === wp.bg ? " selected" : "");
     div.style.background = wp.bg;
