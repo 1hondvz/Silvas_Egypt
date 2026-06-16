@@ -646,8 +646,10 @@ form.onsubmit=e=>{
 // ====== DAILY ======
 function claimDaily(){
   if(Date.now()-lastDaily<43200000){
-    const remaining=Math.ceil((43200000-(Date.now()-lastDaily))/3600000);
-    toast("باقي "+remaining+" ساعة ⏰","#e67e00");return;
+    const diff=43200000-(Date.now()-lastDaily);
+    const h=Math.floor(diff/3600000);
+    const m=Math.floor((diff%3600000)/60000);
+    toast("باقي "+h+" ساعة و "+m+" دقيقة ⏰","#e67e00");return;
   }
   const g=Math.floor(Math.random()*100)+50,j=Math.floor(Math.random()*10)+5;lastDaily=Date.now();
   db.ref("players/"+playerUID).update({gold:gold+g,gems:gems+j,lastDaily});
@@ -660,8 +662,10 @@ function claimDaily(){
 // ====== SPIN ======
 function spinWheel(){
   if(Date.now()-lastSpin<43200000){
-    const remaining=Math.ceil((43200000-(Date.now()-lastSpin))/3600000);
-    toast("باقي "+remaining+" ساعة ⏰","#e67e00");return;
+    const diff=43200000-(Date.now()-lastSpin);
+    const h=Math.floor(diff/3600000);
+    const m=Math.floor((diff%3600000)/60000);
+    toast("باقي "+h+" ساعة و "+m+" دقيقة ⏰","#e67e00");return;
   }
   const prizes=[{gold:50,gems:0},{gold:100,gems:5},{gold:0,gems:10},{gold:200,gems:20},{gold:0,gems:50}];
   const p=prizes[Math.floor(Math.random()*prizes.length)];lastSpin=Date.now();
