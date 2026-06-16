@@ -1220,7 +1220,11 @@ function updatePhoneTime() {
   const el = document.getElementById("phoneTime");
   if(!el) return;
   const now = new Date();
-  el.textContent = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+  let h = now.getHours();
+  const m = now.getMinutes().toString().padStart(2,"0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  el.textContent = h + ":" + m + " " + ampm;
 }
 
 function goPhoneHome() {
