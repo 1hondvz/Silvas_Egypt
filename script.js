@@ -1215,7 +1215,28 @@ function openPhone() {
 }
 
 function closePhone() {
+  if(musicAudio) { musicAudio.pause(); }
   document.getElementById("phoneOverlay").classList.remove("open");
+}
+
+function minimizePhone() {
+  const frame = document.getElementById("phoneFrame");
+  const btn   = document.getElementById("phoneMinimizeBtn");
+  if(frame.style.opacity === "0.15") {
+    // استعادة
+    frame.style.opacity = "1";
+    frame.style.pointerEvents = "auto";
+    frame.style.transform = "scale(1)";
+    btn.textContent = "—";
+    btn.title = "تصغير";
+  } else {
+    // تصغير — شفاف تقريباً
+    frame.style.opacity = "0.15";
+    frame.style.pointerEvents = "none";
+    frame.style.transform = "scale(0.55) translateY(160px)";
+    btn.textContent = "⬜";
+    btn.title = "استعادة";
+  }
 }
 
 function phoneOverlayClick(e) {
@@ -1371,67 +1392,120 @@ function sendTwNotification(toUID, type, fromName, tweetId) {
 }
 
 // ====== MUSIC APP ======
-const MUSIC_PLAYLIST = [
-  { title:"Blinding Lights",    artist:"The Weeknd",   src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-  { title:"Shape of You",       artist:"Ed Sheeran",   src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  { title:"Stay",               artist:"The Kid LAROI", src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
-  { title:"Levitating",         artist:"Dua Lipa",     src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
-  { title:"Peaches",            artist:"Justin Bieber",src:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
-];
 let musicAudio = null;
 let musicCurrentIdx = 0;
 let musicPlaying = false;
+let musicPlaylistData = [];
 
 function openMusicApp() {
-  renderPlaylist();
-  loadTrack(0, false);
+  loadMusicPlaylist();
+}
+
+function musicAddTrack() {
+  const url = prompt("الصق رابط الأغنية (mp3/soundcloud/...):");
+  if(!url || !url.trim()) return;
+  const title = prompt("اسم الأغنية:") || "أغنية جديدة";
+  const artist = prompt("اسم الفنان:") || "—";
+  const trackId = "tr_"+Date.now();
+  db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).set({
+    id: trackId, title, artist, src: url.trim(), addedAt: Date.now()
+  });
+  toast("✅ تمت الإضافة!","#e84393");
+  loadMusicPlaylist();
+}
+
+function loadMusicPlaylist() {
+  db.ref("players/"+playerUID+"/musicPlaylist").once("value").then(snap => {
+    musicPlaylistData = snap.exists() ? Object.values(snap.val()).sort((a,b)=>a.addedAt-b.addedAt) : [];
+    renderPlaylist();
+    if(musicPlaylistData.length > 0 && !musicAudio) loadTrack(0, false);
+    else if(musicPlaylistData.length === 0) {
+      document.getElementById("musicSongName").textContent = "اضغط + لإضافة أغنية";
+      document.getElementById("musicArtist").textContent = "—";
+    }
+  });
 }
 
 function renderPlaylist() {
   const list = document.getElementById("musicPlaylist");
   if(!list) return;
   list.innerHTML = "";
-  MUSIC_PLAYLIST.forEach((t,i) => {
+  if(musicPlaylistData.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد أغاني — اضغط + للإضافة</div>';
+    return;
+  }
+  musicPlaylistData.forEach((t,i) => {
     const item = document.createElement("div");
-    item.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #1a1a1a;cursor:pointer;background:${i===musicCurrentIdx?"#1a1a2e":"transparent"};border-radius:8px;`;
-    item.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#fd79a8,#e84393);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${i===musicCurrentIdx&&musicPlaying?"▶":"🎵"}</div>
-      <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.title}</div>
-      <div style="font-size:11px;color:#aaa;">${t.artist}</div></div>`;
+    item.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #111;cursor:pointer;border-radius:8px;background:${i===musicCurrentIdx?"#1a0a14":"transparent"};`;
+    item.innerHTML = `
+      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#fd79a8,#e84393);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${i===musicCurrentIdx&&musicPlaying?"▶":"🎵"}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.title}</div>
+        <div style="font-size:10px;color:#aaa;">${t.artist}</div>
+      </div>
+      <button onclick="event.stopPropagation();musicDeleteTrack('${t.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:0 4px;">🗑️</button>`;
     item.onclick = () => loadTrack(i, true);
     list.appendChild(item);
   });
 }
 
+function musicDeleteTrack(trackId) {
+  db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).remove();
+  if(musicAudio) { musicAudio.pause(); musicAudio=null; musicPlaying=false; }
+  loadMusicPlaylist();
+}
+
 function loadTrack(idx, autoPlay) {
+  if(musicPlaylistData.length === 0) return;
   musicCurrentIdx = idx;
-  const t = MUSIC_PLAYLIST[idx];
+  const t = musicPlaylistData[idx];
   document.getElementById("musicSongName").textContent = t.title;
   document.getElementById("musicArtist").textContent = t.artist;
   if(musicAudio) { musicAudio.pause(); musicAudio = null; }
   musicAudio = new Audio(t.src);
+  musicAudio.crossOrigin = "anonymous";
   musicAudio.ontimeupdate = () => {
-    if(!musicAudio.duration) return;
+    if(!musicAudio || !musicAudio.duration) return;
     document.getElementById("musicProgress").value = (musicAudio.currentTime/musicAudio.duration)*100;
     document.getElementById("musicCurrentTime").textContent = fmtTime(musicAudio.currentTime);
     document.getElementById("musicDuration").textContent = fmtTime(musicAudio.duration);
   };
   musicAudio.onended = () => musicNext();
+  musicAudio.onerror = () => toast("تعذر تشغيل الأغنية — تأكد من الرابط","#dc3545");
   document.getElementById("musicProgress").oninput = function() {
     if(musicAudio) musicAudio.currentTime = (this.value/100)*musicAudio.duration;
   };
-  if(autoPlay) { musicAudio.play(); musicPlaying=true; document.getElementById("musicPlayBtn").textContent="⏸"; }
-  else { musicPlaying=false; document.getElementById("musicPlayBtn").textContent="▶"; }
+  const art = document.getElementById("musicAlbumArt");
+  if(autoPlay) {
+    musicAudio.play().catch(()=>{});
+    musicPlaying=true;
+    document.getElementById("musicPlayBtn").textContent="⏸";
+    if(art) art.classList.add("playing");
+  } else {
+    musicPlaying=false;
+    document.getElementById("musicPlayBtn").textContent="▶";
+    if(art) art.classList.remove("playing");
+  }
   renderPlaylist();
 }
 
 function musicTogglePlay() {
   if(!musicAudio) return;
-  if(musicPlaying) { musicAudio.pause(); musicPlaying=false; document.getElementById("musicPlayBtn").textContent="▶"; }
-  else { musicAudio.play(); musicPlaying=true; document.getElementById("musicPlayBtn").textContent="⏸"; }
+  const art = document.getElementById("musicAlbumArt");
+  if(musicPlaying) {
+    musicAudio.pause(); musicPlaying=false;
+    document.getElementById("musicPlayBtn").textContent="▶";
+    if(art) art.classList.remove("playing");
+  } else {
+    musicAudio.play().catch(()=>{});
+    musicPlaying=true;
+    document.getElementById("musicPlayBtn").textContent="⏸";
+    if(art) art.classList.add("playing");
+  }
 }
-function musicNext() { loadTrack((musicCurrentIdx+1)%MUSIC_PLAYLIST.length, musicPlaying); }
-function musicPrev() { loadTrack((musicCurrentIdx-1+MUSIC_PLAYLIST.length)%MUSIC_PLAYLIST.length, musicPlaying); }
-function fmtTime(s) { return Math.floor(s/60)+":"+(Math.floor(s%60)).toString().padStart(2,"0"); }
+function musicNext() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx+1)%musicPlaylistData.length, musicPlaying); }
+function musicPrev() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx-1+musicPlaylistData.length)%musicPlaylistData.length, musicPlaying); }
+function fmtTime(s) { if(!s||isNaN(s)) return "0:00"; return Math.floor(s/60)+":"+(Math.floor(s%60)).toString().padStart(2,"0"); }
 
 // ====== WALLPAPER ======
 function renderWallpaperGrid() {
@@ -1729,8 +1803,7 @@ function twLoadProfile(uid) {
       </div>
       <div class="tw-profile-name">${data.name||"لاعب"}</div>
       <div class="tw-profile-handle" id="twHandle_${uid}">@${(data.name||"user").toLowerCase().replace(/\s/g,"")}</div>
-      <div class="tw-profile-bio">${data.twBio||""}</div>
-      <div class="tw-profile-stats">
+      <div class="tw-profile-bio">${data.twBio||""}</div>      <div class="tw-profile-stats">
         <span class="tw-stat"><b>${following}</b> متابَع</span>
         <span class="tw-stat"><b>${followers}</b> متابِع</span>
       </div>`;

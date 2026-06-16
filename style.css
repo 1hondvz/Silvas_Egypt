@@ -454,6 +454,7 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
   position:relative;
   overflow:hidden;
   display:flex; flex-direction:column;
+  transition: opacity 0.3s, transform 0.3s;
 }
 
 #phoneStatusBar {
@@ -705,8 +706,8 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
 }
 .tw-profile-name { font-size:15px; font-weight:bold; color:#fff; }
 .tw-profile-handle { font-size:12px; color:#666; margin-bottom:6px; }
-.tw-profile-bio { font-size:12px; color:#e7e9ea; margin-bottom:8px; direction:rtl; }
-.tw-profile-stats { display:flex; gap:16px; }
+.tw-profile-bio { font-size:12px; color:#e7e9ea; margin-bottom:8px; direction:rtl; word-break:break-word; }
+.tw-profile-stats { display:flex; gap:16px; margin-top:6px; }
 .tw-stat { font-size:12px; color:#666; cursor:pointer; }
 .tw-stat b { color:#fff; }
 .tw-stat:hover { text-decoration:underline; }
@@ -741,8 +742,8 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
 }
 #musicAlbumArt.playing { animation-play-state: running; }
 @keyframes spinRecord { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-#musicProgress { -webkit-appearance:none; appearance:none; height:3px; border-radius:2px; background:#2d3748; outline:none; }
-#musicProgress::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#e84393; cursor:pointer; }
+#phoneMusic #musicProgress { -webkit-appearance:none; appearance:none; height:3px; border-radius:2px; background:#2d3748; outline:none; width:88%; display:block; margin:12px auto 0; }
+#phoneMusic #musicProgress::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#e84393; cursor:pointer; }
 
 /* drag cursor */
 #phoneFrame { cursor:default; }
