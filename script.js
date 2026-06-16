@@ -295,7 +295,7 @@ function openProfile(uid){
         const colorRow = document.createElement("div");
         colorRow.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;";
 
-        // زرار "بدون لون خاص"
+        // زرار " لون خاص"
         const resetBtn = document.createElement("button");
         resetBtn.className = "profile-admin-btn";
         resetBtn.style.cssText = "border-color:#555;color:#aaa;";
@@ -1313,31 +1313,38 @@ function twSetActiveBar(btn) {
   if(btn) btn.classList.add("active");
 }
 
+function twSetHeader(title, showBack=false) {
+  document.getElementById("twHeaderTitle").textContent = title;
+  document.getElementById("twBackBtn").style.display = showBack ? "block" : "none";
+}
+
 function twGoHome() {
   twCurrentPage = "home";
   twSetActiveBar(document.getElementById("twBtnHome"));
-  document.getElementById("twHeaderTitle").textContent = "𝕏";
+  twSetHeader("𝕏", false);
   twLoadHome();
 }
 
 function twGoSearch() {
   twCurrentPage = "search";
   twSetActiveBar(document.getElementById("twBtnSearch"));
-  document.getElementById("twHeaderTitle").textContent = "بحث";
+  twSetHeader("بحث", false);
   twLoadSearch();
 }
 
 function twGoNotif() {
   twCurrentPage = "notif";
   twSetActiveBar(document.getElementById("twBtnNotif"));
-  document.getElementById("twHeaderTitle").textContent = "الإشعارات";
+  twSetHeader("الإشعارات", false);
   twLoadNotif();
 }
 
 function twGoProfile(uid) {
   twCurrentPage = "profile";
   twProfileUID = uid || playerUID;
-  twSetActiveBar(uid===playerUID ? document.getElementById("twBtnProfile") : null);
+  const isMe = (uid||playerUID) === playerUID;
+  twSetActiveBar(isMe ? document.getElementById("twBtnProfile") : null);
+  twSetHeader(isMe ? "ملفي" : "الملف الشخصي", !isMe);
   twLoadProfile(twProfileUID);
 }
 
@@ -1441,10 +1448,7 @@ function twOpenComments(tweetId) {
     const tw = snap.val();
     const content = document.getElementById("twContent");
     content.innerHTML = "";
-
-    // هيدر
-    const hdr = document.getElementById("twHeader");
-    hdr.innerHTML = `<button class="tw-header-back" onclick="twGoHome()">❮</button><span style="font-size:15px;font-weight:bold;">التغريدة</span>`;
+    twSetHeader("التغريدة", true);
 
     // التغريدة الأصلية
     twRenderPost(tw, content);
@@ -1504,13 +1508,8 @@ function twPostComment(tweetId) {
 function twLoadProfile(uid) {
   const content = document.getElementById("twContent");
   content.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">جاري التحميل...</div>';
-
-  const hdr = document.getElementById("twHeader");
-  if(uid === playerUID) {
-    hdr.innerHTML = `<span style="font-size:15px;font-weight:bold;color:#fff;">${playerName}</span>`;
-  } else {
-    hdr.innerHTML = `<button class="tw-header-back" onclick="twGoHome()">❮</button><span style="font-size:14px;font-weight:bold;color:#fff;">الملف الشخصي</span>`;
-  }
+  const isMe = uid===playerUID;
+  twSetHeader(isMe?"ملفي":"الملف الشخصي", !isMe);
 
   db.ref("players/"+uid).once("value").then(async snap => {
     const data = snap.val()||{};
