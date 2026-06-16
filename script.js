@@ -1,4 +1,4 @@
-const firebaseConfig = {
+﻿const firebaseConfig = {
   apiKey: "AIzaSyB1iKAp4vwm1bzna1YbUDT1KzFR0TOLduk",
   authDomain: "silvas-egypt.firebaseapp.com",
   databaseURL: "https://silvas-egypt-default-rtdb.firebaseio.com",
