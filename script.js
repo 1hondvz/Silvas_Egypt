@@ -1239,18 +1239,18 @@ function renderWallpaperGrid() {
   const grid = document.getElementById("wallpaperGrid");
   grid.innerHTML = "";
   const wallpapers = [
+    { id:"img1",  bg:"url(https://i.ibb.co/9mg7LnYg/w1.webp) center/cover no-repeat" },
+    { id:"img2",  bg:"url(https://i.ibb.co/N2fvwxJ8/w2.webp) center/cover no-repeat" },
+    { id:"img3",  bg:"url(https://i.ibb.co/zTrt8p4W/w3.webp) center/cover no-repeat" },
+    { id:"img4",  bg:"url(https://i.ibb.co/qMCmRXJD/w4.webp) center/cover no-repeat" },
     { id:"grad1",  bg:"linear-gradient(135deg,#0f0f23 0%,#1a1a3e 100%)" },
     { id:"grad2",  bg:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)" },
     { id:"grad3",  bg:"linear-gradient(135deg,#f093fb 0%,#f5576c 100%)" },
     { id:"grad4",  bg:"linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" },
     { id:"grad5",  bg:"linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)" },
     { id:"grad6",  bg:"linear-gradient(135deg,#fa709a 0%,#fee140 100%)" },
-    { id:"grad7",  bg:"linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)" },
-    { id:"grad8",  bg:"linear-gradient(135deg,#ffecd2 0%,#fcb69f 100%)" },
-    { id:"grad9",  bg:"linear-gradient(135deg,#16213e 0%,#0f3460 100%)" },
-    { id:"grad10", bg:"linear-gradient(135deg,#1a1a2e 0%,#e94560 100%)" },
-    { id:"grad11", bg:"linear-gradient(135deg,#0d0d0d 0%,#434343 100%)" },
-    { id:"grad12", bg:"linear-gradient(135deg,#093028 0%,#237a57 100%)" },
+    { id:"grad7",  bg:"linear-gradient(135deg,#16213e 0%,#0f3460 100%)" },
+    { id:"grad8",  bg:"linear-gradient(135deg,#1a1a2e 0%,#e94560 100%)" },
   ];
   wallpapers.forEach(wp => {
     const div = document.createElement("div");
