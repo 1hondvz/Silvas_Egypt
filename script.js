@@ -515,11 +515,11 @@ function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customA
   if(uid) nameSpan.onclick=()=>openProfile(uid);
   msgContent.appendChild(nameSpan);
   if(imgUrl) {
-    // رسالة صورة
+    // رسالة صورة - بتفتح lightbox مش موقع خارجي
     const chatImg=document.createElement("img");
     chatImg.className="chat-img";
     chatImg.src=imgUrl;
-    chatImg.onclick=()=>window.open(imgUrl,"_blank");
+    chatImg.onclick=()=>openImgLightbox(imgUrl);
     msgContent.appendChild(chatImg);
   } else {
     const msgSpan=document.createElement("span");msgSpan.className="msg-text";msgSpan.textContent=msg;
@@ -532,6 +532,19 @@ function addLine(name,msg,role,figure,gender,uid,grantedBadges,nameColor,customA
 function addSystemMessage(text){
   const div=document.createElement("div");div.className="system-msg";
   div.textContent="⚙️ "+text;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;
+}
+
+function openImgLightbox(url) {
+  let lb = document.getElementById("imgLightbox");
+  if(!lb) {
+    lb = document.createElement("div");
+    lb.id = "imgLightbox";
+    lb.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;";
+    lb.onclick = () => lb.remove();
+    document.body.appendChild(lb);
+  }
+  lb.innerHTML = `<img src="${url}" style="max-width:95vw;max-height:90vh;border-radius:10px;object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,0.8);">`;
+  document.body.appendChild(lb);
 }
 
 // ====== CHAT IMAGE ======
