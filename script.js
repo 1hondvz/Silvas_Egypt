@@ -1216,27 +1216,10 @@ function openPhone() {
 
 function closePhone() {
   if(musicAudio) { musicAudio.pause(); }
+  const old = document.getElementById("ytPlayerFrame");
+  if(old) old.remove();
+  musicPlaying = false;
   document.getElementById("phoneOverlay").classList.remove("open");
-}
-
-function minimizePhone() {
-  const frame = document.getElementById("phoneFrame");
-  const btn   = document.getElementById("phoneMinimizeBtn");
-  if(frame.style.opacity === "0.15") {
-    // استعادة
-    frame.style.opacity = "1";
-    frame.style.pointerEvents = "auto";
-    frame.style.transform = "scale(1)";
-    btn.textContent = "—";
-    btn.title = "تصغير";
-  } else {
-    // تصغير — شفاف تقريباً
-    frame.style.opacity = "0.15";
-    frame.style.pointerEvents = "none";
-    frame.style.transform = "scale(0.55) translateY(160px)";
-    btn.textContent = "⬜";
-    btn.title = "استعادة";
-  }
 }
 
 function phoneOverlayClick(e) {
@@ -1402,16 +1385,27 @@ function openMusicApp() {
 }
 
 function musicAddTrack() {
-  const url = prompt("الصق رابط الأغنية (mp3/soundcloud/...):");
+  const url = prompt("الصق رابط أغنية يوتيوب:");
   if(!url || !url.trim()) return;
+  const ytId = extractYouTubeId(url.trim());
+  if(!ytId) { toast("رابط يوتيوب غير صحيح!","#dc3545"); return; }
   const title = prompt("اسم الأغنية:") || "أغنية جديدة";
   const artist = prompt("اسم الفنان:") || "—";
   const trackId = "tr_"+Date.now();
   db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).set({
-    id: trackId, title, artist, src: url.trim(), addedAt: Date.now()
+    id: trackId, title, artist, ytId, addedAt: Date.now()
   });
   toast("✅ تمت الإضافة!","#e84393");
   loadMusicPlaylist();
+}
+
+function extractYouTubeId(url) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/
+  ];
+  for(const p of patterns) { const m = url.match(p); if(m) return m[1]; }
+  return null;
 }
 
 function loadMusicPlaylist() {
@@ -1461,50 +1455,75 @@ function loadTrack(idx, autoPlay) {
   const t = musicPlaylistData[idx];
   document.getElementById("musicSongName").textContent = t.title;
   document.getElementById("musicArtist").textContent = t.artist;
+
+  // شيل الـ iframe القديم
+  const old = document.getElementById("ytPlayerFrame");
+  if(old) old.remove();
   if(musicAudio) { musicAudio.pause(); musicAudio = null; }
-  musicAudio = new Audio(t.src);
-  musicAudio.crossOrigin = "anonymous";
-  musicAudio.ontimeupdate = () => {
-    if(!musicAudio || !musicAudio.duration) return;
-    document.getElementById("musicProgress").value = (musicAudio.currentTime/musicAudio.duration)*100;
-    document.getElementById("musicCurrentTime").textContent = fmtTime(musicAudio.currentTime);
-    document.getElementById("musicDuration").textContent = fmtTime(musicAudio.duration);
-  };
-  musicAudio.onended = () => musicNext();
-  musicAudio.onerror = () => toast("تعذر تشغيل الأغنية — تأكد من الرابط","#dc3545");
-  document.getElementById("musicProgress").oninput = function() {
-    if(musicAudio) musicAudio.currentTime = (this.value/100)*musicAudio.duration;
-  };
+
+  // صورة مصغرة من يوتيوب كـ album art
   const art = document.getElementById("musicAlbumArt");
-  if(autoPlay) {
-    musicAudio.play().catch(()=>{});
-    musicPlaying=true;
-    document.getElementById("musicPlayBtn").textContent="⏸";
-    if(art) art.classList.add("playing");
+  if(t.ytId) {
+    art.style.backgroundImage = `url(https://img.youtube.com/vi/${t.ytId}/0.jpg)`;
+    art.style.backgroundSize = "cover";
+    art.style.backgroundPosition = "center";
+    art.textContent = "";
   } else {
-    musicPlaying=false;
-    document.getElementById("musicPlayBtn").textContent="▶";
-    if(art) art.classList.remove("playing");
+    art.style.backgroundImage = "";
+    art.textContent = "🎵";
+  }
+
+  // عدّل progress وقت
+  document.getElementById("musicProgress").value = 0;
+  document.getElementById("musicCurrentTime").textContent = "0:00";
+  document.getElementById("musicDuration").textContent = "0:00";
+
+  if(autoPlay && t.ytId) {
+    playYouTube(t.ytId);
+    musicPlaying = true;
+    document.getElementById("musicPlayBtn").textContent = "⏸";
+    art.classList.add("playing");
+  } else {
+    musicPlaying = false;
+    document.getElementById("musicPlayBtn").textContent = "▶";
+    art.classList.remove("playing");
   }
   renderPlaylist();
 }
 
+function playYouTube(ytId) {
+  // حذف قديم
+  const old = document.getElementById("ytPlayerFrame");
+  if(old) old.remove();
+  // iframe مخفي
+  const iframe = document.createElement("iframe");
+  iframe.id = "ytPlayerFrame";
+  iframe.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;";
+  iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=0`;
+  iframe.allow = "autoplay";
+  document.getElementById("phoneMusic").appendChild(iframe);
+}
+
 function musicTogglePlay() {
-  if(!musicAudio) return;
   const art = document.getElementById("musicAlbumArt");
+  const t = musicPlaylistData[musicCurrentIdx];
+  if(!t) return;
   if(musicPlaying) {
-    musicAudio.pause(); musicPlaying=false;
-    document.getElementById("musicPlayBtn").textContent="▶";
-    if(art) art.classList.remove("playing");
+    // إيقاف — حذف iframe
+    const old = document.getElementById("ytPlayerFrame");
+    if(old) old.remove();
+    musicPlaying = false;
+    document.getElementById("musicPlayBtn").textContent = "▶";
+    art.classList.remove("playing");
   } else {
-    musicAudio.play().catch(()=>{});
-    musicPlaying=true;
-    document.getElementById("musicPlayBtn").textContent="⏸";
-    if(art) art.classList.add("playing");
+    if(t.ytId) playYouTube(t.ytId);
+    musicPlaying = true;
+    document.getElementById("musicPlayBtn").textContent = "⏸";
+    art.classList.add("playing");
   }
 }
-function musicNext() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx+1)%musicPlaylistData.length, musicPlaying); }
-function musicPrev() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx-1+musicPlaylistData.length)%musicPlaylistData.length, musicPlaying); }
+function musicNext() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx+1)%musicPlaylistData.length, true); }
+function musicPrev() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx-1+musicPlaylistData.length)%musicPlaylistData.length, true); }
 function fmtTime(s) { if(!s||isNaN(s)) return "0:00"; return Math.floor(s/60)+":"+(Math.floor(s%60)).toString().padStart(2,"0"); }
 
 // ====== WALLPAPER ======
@@ -1792,18 +1811,19 @@ function twLoadProfile(uid) {
     const ph = document.createElement("div");
     ph.className = "tw-profile-header";
     ph.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;padding:6px 0 10px;">
-        ${isMe
-          ? `<button class="tw-follow-btn" onclick="twEditBio()">تعديل الملف</button>`
-          : `<button class="tw-follow-btn ${isFollowing?'following':'follow'}" onclick="twToggleFollow('${uid}',this)">${isFollowing?'متابَع':'متابعة'}</button>`
-        }
+      <div style="display:flex;justify-content:flex-end;padding:6px 0 2px;">
+        ${!isMe ? `<button class="tw-follow-btn ${isFollowing?'following':'follow'}" onclick="twToggleFollow('${uid}',this)">${isFollowing?'متابَع':'متابعة'}</button>` : ""}
       </div>
       <div class="tw-profile-avatar-wrap">
         <img class="tw-profile-avatar" src="${av}" onerror="this.style.display='none'">
       </div>
       <div class="tw-profile-name">${data.name||"لاعب"}</div>
-      <div class="tw-profile-handle" id="twHandle_${uid}">@${(data.name||"user").toLowerCase().replace(/\s/g,"")}</div>
-      <div class="tw-profile-bio">${data.twBio||""}</div>      <div class="tw-profile-stats">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+        <span class="tw-profile-handle">@${(data.name||"user").toLowerCase().replace(/\s/g,"")}</span>
+        ${isMe ? `<button onclick="twEditBio()" style="background:none;border:1px solid #536471;color:#aaa;padding:2px 8px;border-radius:12px;font-size:11px;cursor:pointer;">✏️ البايو</button>` : ""}
+      </div>
+      <div class="tw-profile-bio">${data.twBio||""}</div>
+      <div class="tw-profile-stats">
         <span class="tw-stat"><b>${following}</b> متابَع</span>
         <span class="tw-stat"><b>${followers}</b> متابِع</span>
       </div>`;
