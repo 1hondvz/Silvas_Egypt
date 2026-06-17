@@ -1375,28 +1375,138 @@ function sendTwNotification(toUID, type, fromName, tweetId) {
 }
 
 // ====== MUSIC APP ======
-let musicAudio = null;
 let musicCurrentIdx = 0;
 let musicPlaying = false;
-let musicPlaylistData = [];
+let musicPlaylistData = []; // كل أغاني اللاعب
+let musicCurrentSource = []; // الأغاني اللي بتشتغل دلوقتي
+let musicPage = "home";
 
 function openMusicApp() {
-  loadMusicPlaylist();
+  musicGoHome();
 }
 
+function musicSetBar(active) {
+  document.getElementById("musicBtnHome").classList.toggle("active", active==="home");
+  document.getElementById("musicBtnLibrary").classList.toggle("active", active==="library");
+}
+
+// ====== HOME ======
+function musicGoHome() {
+  musicPage = "home";
+  musicSetBar("home");
+  const c = document.getElementById("musicContent");
+  c.innerHTML = `
+    <div style="padding:14px 14px 4px;display:flex;justify-content:space-between;align-items:center;">
+      <span class="music-section-title" style="padding:0;">My Songs</span>
+      <button onclick="musicAddTrack()" style="background:#1db954;border:none;color:#000;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:bold;cursor:pointer;">+ Add</button>
+    </div>
+    <div id="musicTrackList"></div>`;
+  loadAllTracks();
+}
+
+function loadAllTracks() {
+  db.ref("players/"+playerUID+"/musicPlaylist").once("value").then(snap => {
+    musicPlaylistData = snap.exists() ? Object.values(snap.val()).sort((a,b)=>a.addedAt-b.addedAt) : [];
+    renderTrackList(musicPlaylistData, "musicTrackList", musicPlaylistData);
+  });
+}
+
+function renderTrackList(tracks, containerId, sourceList) {
+  const list = document.getElementById(containerId);
+  if(!list) return;
+  list.innerHTML = "";
+  if(tracks.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#555;padding:30px;font-size:12px;">لا توجد أغاني</div>';
+    return;
+  }
+  tracks.forEach((t, i) => {
+    const isActive = musicCurrentSource===sourceList && i===musicCurrentIdx;
+    const liked = t.liked;
+    const div = document.createElement("div");
+    div.className = "music-track-row";
+    div.style.background = isActive ? "#1a1a1a" : "";
+    const thumb = t.ytId ? `https://img.youtube.com/vi/${t.ytId}/default.jpg` : "";
+    div.innerHTML = `
+      <img class="music-track-art" src="${thumb}" onerror="this.style.background='#282828';this.src=''">
+      <div class="music-track-info">
+        <div class="music-track-title" style="color:${isActive?"#1db954":"#fff"}">${t.title}</div>
+        <div class="music-track-artist">${t.artist}</div>
+      </div>
+      <div class="music-track-actions">
+        <button onclick="event.stopPropagation();musicLikeTrack('${t.id}',this)" style="background:none;border:none;font-size:16px;cursor:pointer;">${liked?"❤️":"🤍"}</button>
+        <button onclick="event.stopPropagation();musicDeleteTrack('${t.id}')" style="background:none;border:none;color:#555;font-size:14px;cursor:pointer;">⋯</button>
+      </div>`;
+    div.onclick = () => { musicCurrentSource = sourceList; loadTrack(i, true, sourceList); };
+    list.appendChild(div);
+  });
+}
+
+// ====== LIBRARY ======
+function musicGoLibrary() {
+  musicPage = "library";
+  musicSetBar("library");
+  const c = document.getElementById("musicContent");
+  c.innerHTML = `
+    <div class="music-section-title">Your Library</div>
+    <div class="music-playlist-card" onclick="musicOpenLikedSongs()" style="cursor:pointer;">
+      <div class="music-playlist-cover" style="background:linear-gradient(135deg,#450af5,#c4efd9);">❤️</div>
+      <div>
+        <div style="font-size:13px;font-weight:bold;color:#fff;">Liked Songs</div>
+        <div style="font-size:11px;color:#b3b3b3;" id="likedCount">Playlist</div>
+      </div>
+    </div>`;
+  // عدد الـ liked
+  db.ref("players/"+playerUID+"/musicPlaylist").orderByChild("liked").equalTo(true).once("value").then(snap => {
+    const el = document.getElementById("likedCount");
+    if(el) el.textContent = (snap.exists()?Object.keys(snap.val()).length:0) + " songs";
+  });
+}
+
+function musicOpenLikedSongs() {
+  const c = document.getElementById("musicContent");
+  c.innerHTML = `
+    <div style="background:linear-gradient(135deg,#450af5,#c4efd9);padding:20px 14px 14px;">
+      <button onclick="musicGoLibrary()" style="background:rgba(0,0,0,0.3);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;margin-bottom:10px;">❮</button>
+      <div style="font-size:24px;font-weight:bold;color:#fff;">❤️ Liked Songs</div>
+    </div>
+    <div id="likedTrackList"></div>`;
+  db.ref("players/"+playerUID+"/musicPlaylist").orderByChild("liked").equalTo(true).once("value").then(snap => {
+    const liked = snap.exists() ? Object.values(snap.val()).sort((a,b)=>a.addedAt-b.addedAt) : [];
+    renderTrackList(liked, "likedTrackList", liked);
+  });
+}
+
+// ====== LIKE TRACK ======
+function musicLikeTrack(trackId, btn) {
+  db.ref("players/"+playerUID+"/musicPlaylist/"+trackId+"/liked").once("value").then(snap => {
+    const wasLiked = snap.val()===true;
+    db.ref("players/"+playerUID+"/musicPlaylist/"+trackId+"/liked").set(!wasLiked);
+    btn.textContent = wasLiked ? "🤍" : "❤️";
+    // حدّث mini player
+    updateMiniLike(!wasLiked);
+    toast(wasLiked?"تم الإزالة من Liked":"❤️ أضيف للـ Liked Songs", wasLiked?"#636e72":"#1db954");
+  });
+}
+
+function updateMiniLike(liked) {
+  const btn = document.getElementById("miniLikeBtn");
+  if(btn) btn.textContent = liked ? "❤️" : "🤍";
+}
+
+// ====== ADD TRACK ======
 function musicAddTrack() {
-  const url = prompt("الصق رابط أغنية يوتيوب:");
-  if(!url || !url.trim()) return;
+  const url = prompt("YouTube link:");
+  if(!url||!url.trim()) return;
   const ytId = extractYouTubeId(url.trim());
   if(!ytId) { toast("رابط يوتيوب غير صحيح!","#dc3545"); return; }
-  const title = prompt("اسم الأغنية:") || "أغنية جديدة";
-  const artist = prompt("اسم الفنان:") || "—";
+  const title = prompt("Song name:") || "New Song";
+  const artist = prompt("Artist:") || "—";
   const trackId = "tr_"+Date.now();
   db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).set({
-    id: trackId, title, artist, ytId, addedAt: Date.now()
+    id:trackId, title, artist, ytId, liked:false, addedAt:Date.now()
   });
-  toast("✅ تمت الإضافة!","#e84393");
-  loadMusicPlaylist();
+  toast("✅ Added!","#1db954");
+  musicGoHome();
 }
 
 function extractYouTubeId(url) {
@@ -1404,127 +1514,86 @@ function extractYouTubeId(url) {
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/shorts\/([^&\n?#]+)/
   ];
-  for(const p of patterns) { const m = url.match(p); if(m) return m[1]; }
+  for(const p of patterns) { const m=url.match(p); if(m) return m[1]; }
   return null;
 }
 
-function loadMusicPlaylist() {
-  db.ref("players/"+playerUID+"/musicPlaylist").once("value").then(snap => {
-    musicPlaylistData = snap.exists() ? Object.values(snap.val()).sort((a,b)=>a.addedAt-b.addedAt) : [];
-    renderPlaylist();
-    if(musicPlaylistData.length > 0 && !musicAudio) loadTrack(0, false);
-    else if(musicPlaylistData.length === 0) {
-      document.getElementById("musicSongName").textContent = "اضغط + لإضافة أغنية";
-      document.getElementById("musicArtist").textContent = "—";
-    }
-  });
-}
-
-function renderPlaylist() {
-  const list = document.getElementById("musicPlaylist");
-  if(!list) return;
-  list.innerHTML = "";
-  if(musicPlaylistData.length === 0) {
-    list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا توجد أغاني — اضغط + للإضافة</div>';
-    return;
-  }
-  musicPlaylistData.forEach((t,i) => {
-    const item = document.createElement("div");
-    item.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #111;cursor:pointer;border-radius:8px;background:${i===musicCurrentIdx?"#1a0a14":"transparent"};`;
-    item.innerHTML = `
-      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#fd79a8,#e84393);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${i===musicCurrentIdx&&musicPlaying?"▶":"🎵"}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.title}</div>
-        <div style="font-size:10px;color:#aaa;">${t.artist}</div>
-      </div>
-      <button onclick="event.stopPropagation();musicDeleteTrack('${t.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:0 4px;">🗑️</button>`;
-    item.onclick = () => loadTrack(i, true);
-    list.appendChild(item);
-  });
-}
-
 function musicDeleteTrack(trackId) {
+  if(!confirm("حذف الأغنية؟")) return;
   db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).remove();
-  if(musicAudio) { musicAudio.pause(); musicAudio=null; musicPlaying=false; }
-  loadMusicPlaylist();
+  toast("تم الحذف","#636e72");
+  loadAllTracks();
 }
 
-function loadTrack(idx, autoPlay) {
-  if(musicPlaylistData.length === 0) return;
+// ====== PLAYER ======
+function loadTrack(idx, autoPlay, sourceList) {
+  const list = sourceList || musicPlaylistData;
+  if(!list||list.length===0) return;
   musicCurrentIdx = idx;
-  const t = musicPlaylistData[idx];
-  document.getElementById("musicSongName").textContent = t.title;
-  document.getElementById("musicArtist").textContent = t.artist;
+  musicCurrentSource = list;
+  const t = list[idx];
 
-  // شيل الـ iframe القديم
+  // Mini player
+  const mp = document.getElementById("musicMiniPlayer");
+  if(mp) mp.style.display = "flex";
+  document.getElementById("miniTitle").textContent = t.title;
+  document.getElementById("miniArtist").textContent = t.artist;
+  const art = document.getElementById("miniArt");
+  if(art) art.src = t.ytId ? `https://img.youtube.com/vi/${t.ytId}/default.jpg` : "";
+  updateMiniLike(t.liked);
+
+  // شغّل
   const old = document.getElementById("ytPlayerFrame");
   if(old) old.remove();
-  if(musicAudio) { musicAudio.pause(); musicAudio = null; }
-
-  // صورة مصغرة من يوتيوب كـ album art
-  const art = document.getElementById("musicAlbumArt");
-  if(t.ytId) {
-    art.style.backgroundImage = `url(https://img.youtube.com/vi/${t.ytId}/0.jpg)`;
-    art.style.backgroundSize = "cover";
-    art.style.backgroundPosition = "center";
-    art.textContent = "";
-  } else {
-    art.style.backgroundImage = "";
-    art.textContent = "🎵";
-  }
-
-  // عدّل progress وقت
-  document.getElementById("musicProgress").value = 0;
-  document.getElementById("musicCurrentTime").textContent = "0:00";
-  document.getElementById("musicDuration").textContent = "0:00";
-
   if(autoPlay && t.ytId) {
     playYouTube(t.ytId);
     musicPlaying = true;
-    document.getElementById("musicPlayBtn").textContent = "⏸";
-    art.classList.add("playing");
+    document.getElementById("miniPlayBtn").textContent = "⏸";
   } else {
     musicPlaying = false;
-    document.getElementById("musicPlayBtn").textContent = "▶";
-    art.classList.remove("playing");
+    document.getElementById("miniPlayBtn").textContent = "▶";
   }
-  renderPlaylist();
+  // refresh list
+  if(musicPage==="home") renderTrackList(musicPlaylistData,"musicTrackList",musicPlaylistData);
 }
 
 function playYouTube(ytId) {
-  // حذف قديم
   const old = document.getElementById("ytPlayerFrame");
   if(old) old.remove();
-  // iframe مخفي
   const iframe = document.createElement("iframe");
   iframe.id = "ytPlayerFrame";
-  iframe.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;";
+  iframe.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-999px;";
   iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=0`;
   iframe.allow = "autoplay";
   document.getElementById("phoneMusic").appendChild(iframe);
 }
 
 function musicTogglePlay() {
-  const art = document.getElementById("musicAlbumArt");
-  const t = musicPlaylistData[musicCurrentIdx];
+  const list = musicCurrentSource||musicPlaylistData;
+  if(!list||list.length===0) return;
+  const t = list[musicCurrentIdx];
   if(!t) return;
+  const btn = document.getElementById("miniPlayBtn");
   if(musicPlaying) {
-    // إيقاف — حذف iframe
     const old = document.getElementById("ytPlayerFrame");
     if(old) old.remove();
     musicPlaying = false;
-    document.getElementById("musicPlayBtn").textContent = "▶";
-    art.classList.remove("playing");
+    if(btn) btn.textContent = "▶";
   } else {
     if(t.ytId) playYouTube(t.ytId);
     musicPlaying = true;
-    document.getElementById("musicPlayBtn").textContent = "⏸";
-    art.classList.add("playing");
+    if(btn) btn.textContent = "⏸";
   }
 }
-function musicNext() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx+1)%musicPlaylistData.length, true); }
-function musicPrev() { if(musicPlaylistData.length>0) loadTrack((musicCurrentIdx-1+musicPlaylistData.length)%musicPlaylistData.length, true); }
-function fmtTime(s) { if(!s||isNaN(s)) return "0:00"; return Math.floor(s/60)+":"+(Math.floor(s%60)).toString().padStart(2,"0"); }
+
+function musicNext() {
+  const list = musicCurrentSource||musicPlaylistData;
+  if(list&&list.length>0) loadTrack((musicCurrentIdx+1)%list.length, true, list);
+}
+function musicPrev() {
+  const list = musicCurrentSource||musicPlaylistData;
+  if(list&&list.length>0) loadTrack((musicCurrentIdx-1+list.length)%list.length, true, list);
+}
 
 // ====== WALLPAPER ======
 function renderWallpaperGrid() {
