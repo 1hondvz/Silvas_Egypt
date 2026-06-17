@@ -1586,6 +1586,13 @@ function musicTogglePlay() {
   }
 }
 
+function musicToggleLike() {
+  const list = musicCurrentSource||musicPlaylistData;
+  if(!list||list.length===0) return;
+  const t = list[musicCurrentIdx];
+  if(!t||!t.id) return;
+  musicLikeTrack(t.id, document.getElementById("miniLikeBtn"));
+}
 function musicNext() {
   const list = musicCurrentSource||musicPlaylistData;
   if(list&&list.length>0) loadTrack((musicCurrentIdx+1)%list.length, true, list);
