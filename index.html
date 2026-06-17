@@ -328,7 +328,7 @@
       <div id="phoneHomeBar" onclick="goPhoneHome()"></div>
     </div>
     <!-- زرار إغلاق -->
-    <button id="phoneCloseBtn" onclick="closePhone()">✖</button>
+    <button id="phoneCloseBtn" onclick="event.stopPropagation();closePhone()">✖</button>
   </div>
 </div>
 

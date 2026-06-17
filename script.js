@@ -1233,7 +1233,11 @@ function closePhone() {
 }
 
 function phoneOverlayClick(e) {
-  if(e.target === document.getElementById("phoneOverlay")) closePhone();
+  // لو الضغط على الـ overlay نفسه أو خارج الـ device
+  if(e.target === document.getElementById("phoneOverlay") ||
+     !document.getElementById("phoneDevice").contains(e.target)) {
+    closePhone();
+  }
 }
 
 function updatePhoneTime() {
