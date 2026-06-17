@@ -1387,6 +1387,7 @@ function sendTwNotification(toUID, type, fromName, tweetId) {
 }
 
 // ====== MUSIC APP ======
+let musicAudio = null; // kept for compatibility
 let musicCurrentIdx = 0;
 let musicPlaying = false;
 let musicPlaylistData = []; // كل أغاني اللاعب
