@@ -1448,7 +1448,7 @@ function renderTrackList(tracks, containerId, sourceList) {
         <button onclick="event.stopPropagation();musicLikeTrack('${t.id}',this)" style="background:none;border:none;font-size:16px;cursor:pointer;">${liked?"❤️":"🤍"}</button>
         <button onclick="event.stopPropagation();musicDeleteTrack('${t.id}')" style="background:none;border:none;color:#555;font-size:14px;cursor:pointer;">⋯</button>
       </div>`;
-    div.onclick = () => { musicCurrentSource = sourceList; loadTrack(i, true, sourceList); };
+    div.onclick = (e) => { e.stopPropagation(); musicCurrentSource = sourceList; loadTrack(i, true, sourceList); };
     list.appendChild(div);
   });
 }
