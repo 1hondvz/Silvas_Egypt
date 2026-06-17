@@ -1219,6 +1219,16 @@ function closePhone() {
   const old = document.getElementById("ytPlayerFrame");
   if(old) old.remove();
   musicPlaying = false;
+  // reset drag position
+  const device = document.getElementById("phoneDevice");
+  if(device) {
+    device.style.position = "";
+    device.style.left = "";
+    device.style.top = "";
+    device.style.transform = "";
+    device.style.margin = "";
+    device._dragInit = false;
+  }
   document.getElementById("phoneOverlay").classList.remove("open");
 }
 
