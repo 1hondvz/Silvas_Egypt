@@ -1215,11 +1215,9 @@ function openPhone() {
 }
 
 function closePhone() {
-  if(musicAudio) { musicAudio.pause(); }
   const old = document.getElementById("ytPlayerFrame");
   if(old) old.remove();
   musicPlaying = false;
-  // reset drag position
   const device = document.getElementById("phoneDevice");
   if(device) {
     device.style.position = "";
