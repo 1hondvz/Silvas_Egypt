@@ -1231,9 +1231,8 @@ function closePhone() {
 }
 
 function phoneOverlayClick(e) {
-  // لو الضغط على الـ overlay نفسه أو خارج الـ device
-  if(e.target === document.getElementById("phoneOverlay") ||
-     !document.getElementById("phoneDevice").contains(e.target)) {
+  // بس لو الضغط على الـ overlay نفسه بالظبط
+  if(e.target === document.getElementById("phoneOverlay")) {
     closePhone();
   }
 }
