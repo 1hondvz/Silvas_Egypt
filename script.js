@@ -1563,7 +1563,7 @@ function playYouTube(ytId) {
   const iframe = document.createElement("iframe");
   iframe.id = "ytPlayerFrame";
   iframe.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-999px;";
-  iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=0`;
+  iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1`;
   iframe.allow = "autoplay";
   document.getElementById("phoneMusic").appendChild(iframe);
 }
@@ -1574,13 +1574,23 @@ function musicTogglePlay() {
   const t = list[musicCurrentIdx];
   if(!t) return;
   const btn = document.getElementById("miniPlayBtn");
+  const iframe = document.getElementById("ytPlayerFrame");
+
   if(musicPlaying) {
-    const old = document.getElementById("ytPlayerFrame");
-    if(old) old.remove();
+    // Pause — نبعت postMessage لليوتيوب
+    if(iframe) {
+      try { iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}','*'); } catch(e){}
+    }
     musicPlaying = false;
     if(btn) btn.textContent = "▶";
   } else {
-    if(t.ytId) playYouTube(t.ytId);
+    if(iframe) {
+      // Resume
+      try { iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}','*'); } catch(e){}
+    } else if(t.ytId) {
+      // أول مرة
+      playYouTube(t.ytId);
+    }
     musicPlaying = true;
     if(btn) btn.textContent = "⏸";
   }

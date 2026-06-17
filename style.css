@@ -482,8 +482,19 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
   position:absolute; inset:0;
   background:#0d0d1a;
   overflow:hidden;
+  z-index:1;
 }
-.phone-page.active { display:flex; }
+.phone-page.active { display:flex; z-index:2; }
+
+#phoneMusic.active {
+  display:flex;
+  flex-direction:column;
+  position:absolute;
+  inset:0;
+  background:#121212;
+  overflow:hidden;
+  z-index:2;
+}
 
 /* الهوم سكرين */
 #phoneWallpaper {
