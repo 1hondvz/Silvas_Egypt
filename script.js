@@ -2001,31 +2001,44 @@ function waOpenChat(targetUID, targetName) {
 
 function waSendMsg(e) {
   e.preventDefault();
-  const input=document.getElementById("waInput");
+  const input = document.getElementById("waInput");
   if(!input) return;
-  const m=input.value.trim();
-  if(!m||!waCurrentConvUID||!waCurrentConvKey) return;
-  input.value="";
-  const convRef=db.ref("dms/"+waCurrentConvKey);
-  const msgId="m_"+Date.now();
-  convRef.once("value").then(snap=>{
-    const ex=snap.val();
-    const updates={
-      p1: ex ? ex.p1 : playerUID,
-      p2: ex ? ex.p2 : waCurrentConvUID,
-      name1: ex ? ex.name1 : playerName,
-      name2: ex ? ex.name2 : (document.querySelector("#waContent .wa-header-title")||{textContent:""}).textContent,
-      lastMsg: m.substring(0,40),
-      lastTime: Date.now()
-    };
-    updates["unread/"+waCurrentConvUID] = ((ex&&ex.unread&&ex.unread[waCurrentConvUID])||0)+1;
-    // تأكد مفيش undefined
-    Object.keys(updates).forEach(k=>{ if(updates[k]===undefined) delete updates[k]; });
-    convRef.update(updates);
-    db.ref("dms/"+waCurrentConvKey+"/messages/"+msgId).set({
-      senderUID:playerUID, senderName:playerName, msg:m, time:Date.now()
+  const m = input.value.trim();
+  if(!m || !waCurrentConvUID || !waCurrentConvKey) return;
+  input.value = "";
+  const msgId = "m_" + Date.now();
+  const convRef = db.ref("dms/" + waCurrentConvKey);
+  const headerTitle = document.querySelector("#waContent .wa-header-title");
+  const targetName = headerTitle ? headerTitle.textContent : "";
+
+  // احفظ الرسالة أولاً
+  db.ref("dms/" + waCurrentConvKey + "/messages/" + msgId).set({
+    senderUID: playerUID,
+    senderName: playerName,
+    msg: m,
+    time: Date.now()
+  });
+
+  // حدّث بيانات المحادثة
+  convRef.once("value").then(snap => {
+    const ex = snap.val();
+    const p1 = ex ? ex.p1 : playerUID;
+    const p2 = ex ? ex.p2 : waCurrentConvUID;
+    const name1 = ex ? ex.name1 : playerName;
+    const name2 = ex ? ex.name2 : targetName;
+    const prevUnread = (ex && ex.unread && ex.unread[waCurrentConvUID]) ? ex.unread[waCurrentConvUID] : 0;
+
+    if(!p1 || !p2) return; // safety check
+
+    convRef.set({
+      p1, p2, name1, name2,
+      lastMsg: m.substring(0, 40),
+      lastTime: Date.now(),
+      unread: Object.assign({}, ex ? ex.unread : {}, { [waCurrentConvUID]: prevUnread + 1 }),
+      messages: ex ? ex.messages : {}
     });
-    sendNotification(waCurrentConvUID,"dm",playerName);
+
+    sendNotification(waCurrentConvUID, "dm", playerName);
   });
 }
 
