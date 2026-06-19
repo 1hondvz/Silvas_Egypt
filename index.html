@@ -63,6 +63,7 @@
     <button onclick="claimDaily()">🎁 هدية يومية</button>
     <button onclick="spinWheel()">🎡 عجلة الحظ</button>
     <button onclick="openAchievements()" style="background:#ffd700;color:#12122a;font-weight:bold;">🏆 الإنجازات</button>
+    <button onclick="openFriendsList()" style="background:#2d3748;border:1px solid #6c5ce7;">👥 الأصدقاء</button>
     <button onclick="openPhone()" style="background:#1a1a3e;border:1px solid #6c5ce7;">📱 الفون</button>
     <button id="lobbyLogoutBtn" onclick="logout()">خروج 🚪</button>
   </div>
@@ -88,6 +89,7 @@
     <button onclick="openRoomPlayers()" style="background:#0f3460 !important;border:1px solid #6c5ce7;">👥 اللاعبين</button>
     <button id="roomSettingsBtn" style="display:none" onclick="openRoomSettings()">⚙️ إعدادات الغرفة</button>
     <button id="adminToggleBtn" style="display:none" onclick="openPanel('main')">🛡️ الإدارة</button>
+    <button onclick="openFriendsList()" style="background:#2d3748;border:1px solid #6c5ce7;">👥 الأصدقاء</button>
     <button onclick="openPhone()" style="background:#1a1a3e;border:1px solid #6c5ce7;">📱 الفون</button>
   </div>
   <div id="chat"></div>
@@ -363,6 +365,24 @@
       </label>
       <span id="tweetCharCount" style="font-size:12px;color:#555;">0 / 280</span>
     </div>
+  </div>
+</div>
+
+<!-- FRIENDS LIST -->
+<div id="friendsOverlay" onclick="friendsOverlayClick(event)">
+  <div id="friendsPanel">
+    <div class="fl-header">
+      <span class="fl-title">👥 القائمة</span>
+      <button onclick="closeFriendsList()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;">✖</button>
+    </div>
+    <!-- تابز -->
+    <div class="fl-tabs">
+      <button class="fl-tab active" id="flTabFriends" onclick="flSwitchTab('friends')">الأصدقاء</button>
+      <button class="fl-tab" id="flTabRequests" onclick="flSwitchTab('requests')">الطلبات <span id="flReqBadge" style="display:none;background:#e91e8c;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-right:3px;"></span></button>
+      <button class="fl-tab" id="flTabRoom" onclick="flSwitchTab('room')">في الغرفة</button>
+    </div>
+    <!-- محتوى -->
+    <div id="flContent" style="flex:1;overflow-y:auto;"></div>
   </div>
 </div>
 

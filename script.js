@@ -150,6 +150,7 @@ function enterLobby(){
   document.getElementById("lobbyAdminBtn").style.display=(canGiveRole()||canKickOrMute())?"inline-block":"none";
   listenNotifications();
   loadBlockedPlayers();
+  listenFriendRequests();
 }
 function updateLobbyUI(){
   document.getElementById("lobbyGold").textContent="Gold: "+gold;
@@ -277,9 +278,17 @@ function openProfile(uid){
       // صديق
       db.ref("players/"+playerUID+"/friends/"+uid).once("value").then(frSnap=>{
         const isFriend=frSnap.exists();
-        const frBtn=document.createElement("button");frBtn.className="add-friend-btn"+(isFriend?" friend":"");
-        frBtn.textContent=isFriend?"👥 صديق بالفعل":"➕ إضافة صديق";
-        frBtn.onclick=()=>toggleFriend(uid,data.name,frBtn);actionsEl.appendChild(frBtn);
+        // تحقق لو في طلب معلق
+        db.ref("players/"+uid+"/friendRequests/"+playerUID).once("value").then(reqSnap=>{
+          const isPending=reqSnap.exists();
+          const frBtn=document.createElement("button");
+          frBtn.className="add-friend-btn"+(isFriend?" friend":"");
+          if(isFriend){frBtn.textContent="👥 صديق بالفعل";frBtn.style.background="#2d3748";frBtn.style.color="#aaa";}
+          else if(isPending){frBtn.textContent="⏳ طلب مرسل";frBtn.style.background="#2d3748";frBtn.style.color="#aaa";}
+          else frBtn.textContent="➕ إرسال طلب";
+          frBtn.onclick=()=>toggleFriend(uid,data.name,frBtn);
+          actionsEl.appendChild(frBtn);
+        });
       });
       // بلوك
       const isBlocked=blockedPlayers[uid];
@@ -403,23 +412,48 @@ function toggleLike(targetUID,btn){
 }
 
 // صديق
+// صديق — بيبعت طلب بدل إضافة مباشرة
 function toggleFriend(targetUID,targetName,btn){
-  const myFriendRef=db.ref("players/"+playerUID+"/friends/"+targetUID);
-  myFriendRef.once("value").then(snap=>{
+  // تحقق لو صديق فعلاً
+  db.ref("players/"+playerUID+"/friends/"+targetUID).once("value").then(snap=>{
     if(snap.exists()){
-      myFriendRef.remove();db.ref("players/"+targetUID+"/friends/"+playerUID).remove();
-      btn.className="add-friend-btn";btn.textContent="➕ إضافة صديق";
+      // إزالة
+      db.ref("players/"+playerUID+"/friends/"+targetUID).remove();
+      db.ref("players/"+targetUID+"/friends/"+playerUID).remove();
+      btn.className="add-friend-btn";btn.textContent="➕ إرسال طلب";
       toast("تم إزالة "+targetName+" من الأصدقاء","#636e72");
-    }else{
-      myFriendRef.set(targetName);db.ref("players/"+targetUID+"/friends/"+playerUID).set(playerName);
-      btn.className="add-friend-btn friend";btn.textContent="👥 صديق بالفعل";
-      toast("✅ تمت إضافة "+targetName+" كصديق!","#28a745");
-      incStat("friendCount", v => checkAndUnlockAch("friendCount", v));
-      sendNotification(targetUID, "friend", playerName);
-      // تحديث عداد الأصدقاء
-      db.ref("players/"+targetUID+"/friends").once("value").then(s=>{if(viewingUID===targetUID) document.getElementById("profileFriends").textContent=s.exists()?Object.keys(s.val()).length:0;});
+    } else {
+      // تحقق لو في طلب معلق
+      db.ref("players/"+targetUID+"/friendRequests/"+playerUID).once("value").then(reqSnap=>{
+        if(reqSnap.exists()){
+          toast("تم إرسال الطلب بالفعل ⏳","#e67e00");
+          return;
+        }
+        // ابعت طلب
+        db.ref("players/"+targetUID+"/friendRequests/"+playerUID).set({
+          name:playerName, time:Date.now()
+        });
+        btn.className="add-friend-btn";btn.textContent="⏳ طلب مرسل";
+        btn.style.background="#2d3748";btn.style.color="#aaa";
+        toast("✅ تم إرسال طلب صداقة لـ "+targetName,"#28a745");
+        sendNotification(targetUID,"friend",playerName);
+        // حدّث badge الطلبات
+        updateFriendReqBadge();
+      });
     }
   });
+}
+
+function updateFriendReqBadge(){
+  db.ref("players/"+playerUID+"/friendRequests").once("value").then(snap=>{
+    const count=snap.exists()?Object.keys(snap.val()).length:0;
+    const badge=document.getElementById("flReqBadge");
+    if(badge){badge.style.display=count>0?"inline":"none";badge.textContent=count;}
+  });
+}
+
+function listenFriendRequests(){
+  db.ref("players/"+playerUID+"/friendRequests").on("value",()=>updateFriendReqBadge());
 }
 
 // منح بطاقة
@@ -761,6 +795,205 @@ function removeAchievementPrompt(){
     const key=Object.keys(snap.val())[0];
     db.ref("players/"+key+"/achievements/"+ach.id).remove();
     toast("تم شيل إنجاز "+ach.name+" من "+target,"#e67e00");
+  });
+}
+
+// ====== FRIENDS LIST OVERLAY ======
+let flCurrentTab = "friends";
+let flDropdownEl = null;
+
+function openFriendsList() {
+  document.getElementById("friendsOverlay").classList.add("open");
+  flSwitchTab("friends");
+  updateFriendReqBadge();
+}
+function closeFriendsList() { document.getElementById("friendsOverlay").classList.remove("open"); flCloseDropdown(); }
+function friendsOverlayClick(e) { if(e.target===document.getElementById("friendsOverlay")) closeFriendsList(); }
+
+function flSwitchTab(tab) {
+  flCurrentTab = tab;
+  ["friends","requests","room"].forEach(t=>{
+    document.getElementById("flTab"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active",t===tab);
+  });
+  const c = document.getElementById("flContent");
+  c.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">جاري التحميل...</div>';
+  if(tab==="friends") flLoadFriends(c);
+  else if(tab==="requests") flLoadRequests(c);
+  else flLoadRoom(c);
+}
+
+// ====== FRIENDS ======
+function flLoadFriends(c) {
+  db.ref("players/"+playerUID+"/friends").once("value").then(snap=>{
+    c.innerHTML="";
+    if(!snap.exists()||!Object.keys(snap.val()).length){
+      c.innerHTML='<div style="text-align:center;color:#555;padding:30px;font-size:12px;">لا يوجد أصدقاء بعد</div>';
+      return;
+    }
+    const friends = snap.val();
+    // جيب بيانات كل صديق
+    Object.keys(friends).forEach(uid=>{
+      db.ref("players/"+uid).once("value").then(ps=>{
+        const d=ps.val()||{};
+        const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+        const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
+        const online=d.online===true;
+        const item=document.createElement("div");
+        item.className="fl-item";
+        item.innerHTML=`
+          <div style="position:relative;flex-shrink:0;">
+            <img class="fl-avatar" src="${av}" onerror="this.style.background='#2a2a5a'">
+            <div class="fl-online-dot" style="background:${online?"#2ecc71":"#636e72"};"></div>
+          </div>
+          <div class="fl-info">
+            <div class="fl-name">${d.name||"لاعب"}</div>
+            <div class="fl-status">${online?"🟢 متصل":"⚫ غير متصل"}</div>
+          </div>
+          <button class="fl-menu-btn" onclick="event.stopPropagation();flOpenMenu('${uid}','${(d.name||"").replace(/'/g,"\\'")}',this)">⋯</button>`;
+        item.onclick=()=>{ closeFriendsList(); openProfile(uid); };
+        c.appendChild(item);
+      });
+    });
+  });
+}
+
+// ====== MENU ======
+function flCloseDropdown(){
+  if(flDropdownEl){flDropdownEl.remove();flDropdownEl=null;}
+}
+
+function flOpenMenu(uid, name, btn) {
+  flCloseDropdown();
+  const menu=document.createElement("div");
+  menu.className="fl-dropdown";
+  flDropdownEl=menu;
+  const rect=btn.getBoundingClientRect();
+  menu.style.top=(rect.bottom+4)+"px";
+  menu.style.left=Math.max(10,rect.left-130)+"px";
+
+  const items=[
+    {icon:"👤",label:"عرض الملف الشخصي",action:()=>{closeFriendsList();openProfile(uid);}},
+    {icon:"💬",label:"رسالة خاصة",action:()=>{closeFriendsList();openPhoneApp("whatsapp");setTimeout(()=>waOpenChat(uid,name),300);}},
+    {icon:"📍",label:"الذهاب إليه",action:()=>flGoToPlayer(uid,name)},
+    {icon:"🗑️",label:"حذف الصديق",danger:true,action:()=>flRemoveFriend(uid,name)},
+  ];
+
+  items.forEach(item=>{
+    const el=document.createElement("div");
+    el.className="fl-dropdown-item"+(item.danger?" danger":"");
+    el.innerHTML=`<span>${item.icon}</span><span>${item.label}</span>`;
+    el.onclick=(e)=>{e.stopPropagation();flCloseDropdown();item.action();};
+    menu.appendChild(el);
+  });
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener("click",flCloseDropdown,{once:true}),10);
+}
+
+function flGoToPlayer(uid, name) {
+  // ابحث عن اللاعب في الغرف
+  db.ref("rooms").once("value").then(snap=>{
+    if(!snap.exists()){toast(name+" مش في أي غرفة","#636e72");return;}
+    let found=null;
+    snap.forEach(roomSnap=>{
+      const chat=roomSnap.child("chat");
+      if(chat.exists()){
+        chat.forEach(msgSnap=>{
+          if(msgSnap.val().uid===uid) found=roomSnap.val();
+        });
+      }
+    });
+    if(found) toast(name+" في غرفة: "+found.name,"#6c5ce7");
+    else toast(name+" مش في أي غرفة حالياً","#636e72");
+  });
+}
+
+function flRemoveFriend(uid, name) {
+  if(!confirm("حذف "+name+" من الأصدقاء؟")) return;
+  db.ref("players/"+playerUID+"/friends/"+uid).remove();
+  db.ref("players/"+uid+"/friends/"+playerUID).remove();
+  toast("تم حذف "+name+" من الأصدقاء","#636e72");
+  flSwitchTab("friends");
+}
+
+// ====== REQUESTS ======
+function flLoadRequests(c) {
+  db.ref("players/"+playerUID+"/friendRequests").once("value").then(snap=>{
+    c.innerHTML="";
+    if(!snap.exists()||!Object.keys(snap.val()).length){
+      c.innerHTML='<div style="text-align:center;color:#555;padding:30px;font-size:12px;">لا توجد طلبات</div>';
+      return;
+    }
+    Object.entries(snap.val()).forEach(([uid,req])=>{
+      db.ref("players/"+uid).once("value").then(ps=>{
+        const d=ps.val()||{};
+        const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+        const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
+        const item=document.createElement("div");
+        item.className="fl-req-item";
+        item.innerHTML=`
+          <img class="fl-avatar" src="${av}" onerror="this.style.background='#2a2a5a'" style="cursor:pointer;" onclick="closeFriendsList();openProfile('${uid}')">
+          <div class="fl-info">
+            <div class="fl-name">${d.name||"لاعب"}</div>
+            <div class="fl-status">${timeAgo(req.time)}</div>
+          </div>
+          <div class="fl-req-actions">
+            <button class="fl-accept-btn" onclick="flAcceptRequest('${uid}','${(d.name||"").replace(/'/g,"\\'")}',this.closest('.fl-req-item'))">قبول</button>
+            <button class="fl-reject-btn" onclick="flRejectRequest('${uid}',this.closest('.fl-req-item'))">رفض</button>
+          </div>`;
+        c.appendChild(item);
+      });
+    });
+  });
+}
+
+function flAcceptRequest(uid, name, itemEl) {
+  db.ref("players/"+playerUID+"/friendRequests/"+uid).remove();
+  db.ref("players/"+playerUID+"/friends/"+uid).set(name);
+  db.ref("players/"+uid+"/friends/"+playerUID).set(playerName);
+  sendNotification(uid,"friend",playerName);
+  incStat("friendCount",v=>checkAndUnlockAch("friendCount",v));
+  if(itemEl) itemEl.remove();
+  toast("✅ أصبحت وأنت و"+name+" أصدقاء!","#28a745");
+  updateFriendReqBadge();
+}
+
+function flRejectRequest(uid, itemEl) {
+  db.ref("players/"+playerUID+"/friendRequests/"+uid).remove();
+  if(itemEl) itemEl.remove();
+  updateFriendReqBadge();
+  toast("تم رفض الطلب","#636e72");
+}
+
+// ====== ROOM ======
+function flLoadRoom(c) {
+  c.innerHTML="";
+  if(!currentRoomId){
+    c.innerHTML='<div style="text-align:center;color:#555;padding:30px;font-size:12px;">أنت مش في غرفة حالياً</div>';
+    return;
+  }
+  db.ref("rooms/"+currentRoomId+"/chat").limitToLast(50).once("value").then(snap=>{
+    const seen={};
+    if(snap.exists()) Object.values(snap.val()).forEach(d=>{if(d.uid&&!seen[d.uid])seen[d.uid]=d;});
+    if(!Object.keys(seen).length){
+      c.innerHTML='<div style="text-align:center;color:#555;padding:20px;font-size:12px;">لا يوجد لاعبون</div>';
+      return;
+    }
+    Object.values(seen).forEach(d=>{
+      if(d.uid===playerUID) return;
+      const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+      const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
+      const item=document.createElement("div");
+      item.className="fl-item";
+      item.style.cursor="pointer";
+      item.innerHTML=`
+        <img class="fl-avatar" src="${av}" onerror="this.style.background='#2a2a5a'">
+        <div class="fl-info">
+          <div class="fl-name">${d.name}</div>
+          <div class="fl-status" style="color:${ROLE_COLORS[d.role]||"#636e72"}">${d.role&&d.role!=="Normal"?d.role:"لاعب"}</div>
+        </div>`;
+      item.onclick=()=>{closeFriendsList();openProfile(d.uid);};
+      c.appendChild(item);
+    });
   });
 }
 
