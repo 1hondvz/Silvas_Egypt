@@ -1989,11 +1989,31 @@ function waOpenChat(targetUID, targetName) {
     waMsgRef=db.ref("dms/"+waCurrentConvKey+"/messages").limitToLast(60);
     waMsgRef.on("child_added",snap=>{
       const d=snap.val();if(!d)return;
+      if(document.getElementById("wamsg_"+snap.key)) return;
       const isMine=d.senderUID===playerUID;
       const el=document.createElement("div");
       el.className="wa-msg "+(isMine?"mine":"theirs");
-      el.innerHTML=`<div class="wa-msg-bubble">${d.msg}</div><div class="wa-msg-time">${timeAgo(d.time)}</div>`;
+      el.id="wamsg_"+snap.key;
+      // لو رسالة الثاني — سجّل إنها اتشافت
+      if(!isMine){
+        db.ref("dms/"+waCurrentConvKey+"/messages/"+snap.key+"/seenBy/"+playerUID).set(true);
+      }
+      const ticks = isMine ? `<span class="wa-msg-ticks ${d.seenBy&&Object.keys(d.seenBy||{}).length>0?'seen':'sent'}">✓✓</span>` : "";
+      el.innerHTML=`<div class="wa-msg-bubble">${d.msg}<div class="wa-msg-footer"><span class="wa-msg-time">${timeAgo(d.time)}</span>${ticks}</div></div>`;
       msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+    });
+    // استمع لتغيير seenBy عشان تحدّث اللون
+    db.ref("dms/"+waCurrentConvKey+"/messages").on("child_changed", snap=>{
+      const d=snap.val();if(!d) return;
+      const el=document.getElementById("wamsg_"+snap.key);
+      if(!el) return;
+      const isMine=d.senderUID===playerUID;
+      if(!isMine) return;
+      const ticksEl=el.querySelector(".wa-msg-ticks");
+      if(ticksEl){
+        const seen=d.seenBy&&Object.keys(d.seenBy).length>0;
+        ticksEl.className="wa-msg-ticks "+(seen?"seen":"sent");
+      }
     });
     setTimeout(()=>{ const inp=document.getElementById("waInput"); if(inp) inp.focus(); },100);
   });
@@ -2007,11 +2027,11 @@ function waSendMsg(e) {
   if(!m || !waCurrentConvUID || !waCurrentConvKey) return;
   input.value = "";
   const msgId = "m_" + Date.now();
-  const convRef = db.ref("dms/" + waCurrentConvKey);
   const headerTitle = document.querySelector("#waContent .wa-header-title");
   const targetName = headerTitle ? headerTitle.textContent : "";
+  const convRef = db.ref("dms/" + waCurrentConvKey);
 
-  // احفظ الرسالة أولاً
+  // احفظ الرسالة
   db.ref("dms/" + waCurrentConvKey + "/messages/" + msgId).set({
     senderUID: playerUID,
     senderName: playerName,
@@ -2019,25 +2039,18 @@ function waSendMsg(e) {
     time: Date.now()
   });
 
-  // حدّث بيانات المحادثة
+  // حدّث metadata بدون مس messages
   convRef.once("value").then(snap => {
     const ex = snap.val();
-    const p1 = ex ? ex.p1 : playerUID;
-    const p2 = ex ? ex.p2 : waCurrentConvUID;
-    const name1 = ex ? ex.name1 : playerName;
-    const name2 = ex ? ex.name2 : targetName;
-    const prevUnread = (ex && ex.unread && ex.unread[waCurrentConvUID]) ? ex.unread[waCurrentConvUID] : 0;
-
-    if(!p1 || !p2) return; // safety check
-
-    convRef.set({
-      p1, p2, name1, name2,
-      lastMsg: m.substring(0, 40),
-      lastTime: Date.now(),
-      unread: Object.assign({}, ex ? ex.unread : {}, { [waCurrentConvUID]: prevUnread + 1 }),
-      messages: ex ? ex.messages : {}
-    });
-
+    const safeUpdate = {};
+    safeUpdate["p1"] = (ex && ex.p1) ? ex.p1 : playerUID;
+    safeUpdate["p2"] = (ex && ex.p2) ? ex.p2 : waCurrentConvUID;
+    safeUpdate["name1"] = (ex && ex.name1) ? ex.name1 : playerName;
+    safeUpdate["name2"] = (ex && ex.name2) ? ex.name2 : targetName;
+    safeUpdate["lastMsg"] = m.substring(0, 40);
+    safeUpdate["lastTime"] = Date.now();
+    safeUpdate["unread/" + waCurrentConvUID] = ((ex && ex.unread && ex.unread[waCurrentConvUID]) || 0) + 1;
+    convRef.update(safeUpdate);
     sendNotification(waCurrentConvUID, "dm", playerName);
   });
 }

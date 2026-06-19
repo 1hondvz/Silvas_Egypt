@@ -829,14 +829,22 @@ body { font-family:'Arial',sans-serif; background:linear-gradient(135deg,#0f0f23
 
 /* Chat */
 .wa-chat-msgs { flex:1; overflow-y:auto; padding:10px; background:#0b141a; }
-.wa-msg { max-width:78%; margin-bottom:6px; }
-.wa-msg.mine { margin-right:auto; margin-left:0; }
-.wa-msg.theirs { margin-left:auto; margin-right:0; }
-.wa-msg-bubble { padding:7px 10px 4px; border-radius:8px; font-size:12px; line-height:1.4; word-break:break-word; position:relative; }
-.wa-msg.mine .wa-msg-bubble { background:#005c4b; color:#e9edef; border-radius:8px 8px 4px 8px; }
-.wa-msg.theirs .wa-msg-bubble { background:#1f2c34; color:#e9edef; border-radius:8px 8px 8px 4px; }
-.wa-msg-time { font-size:9px; color:#8696a0; text-align:left; margin-top:2px; }
-.wa-msg.theirs .wa-msg-time { text-align:right; }
+.wa-msg { max-width:78%; margin-bottom:6px; clear:both; }
+.wa-msg.mine { float:right; margin-right:0; margin-left:auto; }
+.wa-msg.theirs { float:left; margin-left:0; margin-right:auto; }
+.wa-msg-bubble { 
+  padding:7px 10px 4px; border-radius:8px; font-size:12px; 
+  line-height:1.4; word-break:break-word;
+  display:inline-block; max-width:100%;
+}
+.wa-msg.mine .wa-msg-bubble { background:#005c4b; color:#e9edef; border-radius:8px 0 8px 8px; }
+.wa-msg.theirs .wa-msg-bubble { background:#1f2c34; color:#e9edef; border-radius:0 8px 8px 8px; }
+.wa-msg-footer { display:flex; align-items:center; justify-content:flex-end; gap:3px; margin-top:2px; }
+.wa-msg-time { font-size:9px; color:#8696a0; }
+.wa-msg-ticks { font-size:11px; line-height:1; }
+.wa-msg-ticks.sent { color:#8696a0; }
+.wa-msg-ticks.seen { color:#53bdeb; }
+.wa-chat-msgs::after { content:''; display:block; clear:both; }
 .wa-chat-form { display:flex; gap:6px; padding:8px; background:#1f2c34; flex-shrink:0; align-items:center; }
 .wa-chat-input { flex:1; padding:8px 12px; border-radius:20px; border:none; background:#2a3942; color:#e9edef; font-size:13px; outline:none; }
 .wa-chat-send { background:#00a884; border:none; color:#fff; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
