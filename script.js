@@ -1909,14 +1909,14 @@ function waShowList() {
   if(waMsgRef) { waMsgRef.off(); waMsgRef=null; }
   waCurrentConvUID=null; waCurrentConvKey=null;
   const c = document.getElementById("waContent");
-  c.style.cssText = "flex:1;overflow-y:auto;position:relative;";
+  c.style.cssText = "flex:1;display:flex;flex-direction:column;overflow:hidden;";
   c.innerHTML = `
     <div class="wa-header">
       <button class="wa-header-back" onclick="closePhoneApp()">❮</button>
       <span class="wa-header-title">WhatsApp</span>
     </div>
-    <div id="waConvList" style="background:#111b21;"></div>
-    <button class="wa-fab" onclick="waNewChat()">💬</button>`;
+    <div id="waConvList" style="background:#111b21;flex:1;overflow-y:auto;"></div>
+    <button class="wa-fab" onclick="event.stopPropagation();waNewChat()">💬</button>`;
   db.ref("dms").once("value").then(snap => {
     const list = document.getElementById("waConvList");
     if(!list) return;
@@ -1965,40 +1965,37 @@ function waOpenChat(targetUID, targetName) {
   waCurrentConvUID=targetUID;
   waCurrentConvKey=getDMKey(playerUID,targetUID);
   db.ref("dms/"+waCurrentConvKey+"/unread/"+playerUID).set(0);
-  db.ref("players/"+targetUID+"/online").once("value").then(s=>{
-    const online=s.val();
-    const pd=s.val();
-    db.ref("players/"+targetUID).once("value").then(ps=>{
-      const d=ps.val()||{};
-      const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
-      const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
-      const c=document.getElementById("waContent");
-      c.innerHTML=`
-        <div class="wa-header">
-          <button class="wa-header-back" onclick="event.stopPropagation();waShowList()">❮</button>
-          <img class="wa-conv-avatar" src="${av}" style="width:34px;height:34px;" onerror="this.style.background='#2a3942'">
-          <div style="flex:1;">
-            <div class="wa-header-title">${targetName}</div>
-            <div style="font-size:10px;color:${d.online?"#00a884":"#8696a0"};">${d.online?"online":"offline"}</div>
-          </div>
+  db.ref("players/"+targetUID).once("value").then(ps=>{
+    const d=ps.val()||{};
+    const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+    const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
+    const c=document.getElementById("waContent");
+    c.style.cssText="flex:1;display:flex;flex-direction:column;overflow:hidden;";
+    c.innerHTML=`
+      <div class="wa-header" style="flex-shrink:0;">
+        <button class="wa-header-back" onclick="event.stopPropagation();waShowList()">❮</button>
+        <img class="wa-conv-avatar" src="${av}" style="width:34px;height:34px;flex-shrink:0;" onerror="this.style.background='#2a3942'">
+        <div style="flex:1;">
+          <div class="wa-header-title">${targetName}</div>
+          <div style="font-size:10px;color:${d.online?"#00a884":"#8696a0"};">${d.online?"online":"offline"}</div>
         </div>
-        <div class="wa-chat-msgs" id="waChatMsgs"></div>
-        <form class="wa-chat-form" onsubmit="waSendMsg(event)">
-          <input class="wa-chat-input" id="waInput" placeholder="Message" autocomplete="off">
-          <button type="submit" class="wa-chat-send">➤</button>
-        </form>`;
-      const msgs=document.getElementById("waChatMsgs");
-      waMsgRef=db.ref("dms/"+waCurrentConvKey+"/messages").limitToLast(60);
-      waMsgRef.on("child_added",snap=>{
-        const d=snap.val();if(!d)return;
-        const isMine=d.senderUID===playerUID;
-        const el=document.createElement("div");
-        el.className="wa-msg "+(isMine?"mine":"theirs");
-        el.innerHTML=`<div class="wa-msg-bubble">${d.msg}</div><div class="wa-msg-time">${timeAgo(d.time)}</div>`;
-        msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
-      });
-      document.getElementById("waInput").focus();
+      </div>
+      <div class="wa-chat-msgs" id="waChatMsgs" style="flex:1;overflow-y:auto;padding:10px;background:#0b141a;"></div>
+      <form class="wa-chat-form" onsubmit="waSendMsg(event)" style="flex-shrink:0;">
+        <input class="wa-chat-input" id="waInput" placeholder="Message" autocomplete="off">
+        <button type="submit" class="wa-chat-send">➤</button>
+      </form>`;
+    const msgs=document.getElementById("waChatMsgs");
+    waMsgRef=db.ref("dms/"+waCurrentConvKey+"/messages").limitToLast(60);
+    waMsgRef.on("child_added",snap=>{
+      const d=snap.val();if(!d)return;
+      const isMine=d.senderUID===playerUID;
+      const el=document.createElement("div");
+      el.className="wa-msg "+(isMine?"mine":"theirs");
+      el.innerHTML=`<div class="wa-msg-bubble">${d.msg}</div><div class="wa-msg-time">${timeAgo(d.time)}</div>`;
+      msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
     });
+    setTimeout(()=>{ const inp=document.getElementById("waInput"); if(inp) inp.focus(); },100);
   });
 }
 
