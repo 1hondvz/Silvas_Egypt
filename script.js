@@ -1255,7 +1255,10 @@ function goPhoneHome() {
 
 function openPhoneApp(app) {
   document.querySelectorAll(".phone-page").forEach(p => p.classList.remove("active"));
-  if(app === "settings") {
+  if(app === "whatsapp") {
+    document.getElementById("phoneWhatsapp").classList.add("active");
+    waInit();
+  } else if(app === "settings") {
     document.getElementById("phoneSettings").classList.add("active");
     renderWallpaperGrid();
   } else if(app === "twitter") {
@@ -1658,6 +1661,137 @@ function musicNext() {
 function musicPrev() {
   const list = musicCurrentSource||musicPlaylistData;
   if(list&&list.length>0) loadTrack((musicCurrentIdx-1+list.length)%list.length, true, list);
+}
+
+// ====== WHATSAPP ======
+let waMsgRef = null;
+let waCurrentConvUID = null;
+let waCurrentConvKey = null;
+
+function getDMKey(uid1, uid2) { return [uid1,uid2].sort().join("_"); }
+
+function waInit() { waShowList(); }
+
+function waShowList() {
+  if(waMsgRef) { waMsgRef.off(); waMsgRef=null; }
+  waCurrentConvUID=null; waCurrentConvKey=null;
+  const c = document.getElementById("waContent");
+  c.style.cssText = "flex:1;overflow-y:auto;position:relative;";
+  c.innerHTML = `
+    <div class="wa-header">
+      <button class="wa-header-back" onclick="closePhoneApp()">❮</button>
+      <span class="wa-header-title">WhatsApp</span>
+    </div>
+    <div id="waConvList" style="background:#111b21;"></div>
+    <button class="wa-fab" onclick="waNewChat()">💬</button>`;
+  db.ref("dms").once("value").then(snap => {
+    const list = document.getElementById("waConvList");
+    if(!list) return;
+    if(!snap.exists()) { list.innerHTML='<div style="text-align:center;color:#8696a0;padding:30px;font-size:12px;">لا توجد محادثات بعد</div>'; return; }
+    const convs = Object.values(snap.val()).filter(c=>c.p1===playerUID||c.p2===playerUID).sort((a,b)=>(b.lastTime||0)-(a.lastTime||0));
+    if(!convs.length) { list.innerHTML='<div style="text-align:center;color:#8696a0;padding:30px;font-size:12px;">لا توجد محادثات بعد</div>'; return; }
+    convs.forEach(conv => {
+      const otherUID = conv.p1===playerUID ? conv.p2 : conv.p1;
+      const otherName = conv.p1===playerUID ? conv.name2 : conv.name1;
+      const unread = (conv.unread&&conv.unread[playerUID])||0;
+      db.ref("players/"+otherUID).once("value").then(ps => {
+        const pd=ps.val()||{};
+        const fig=pd.figure||(pd.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+        const av=pd.customAvatar||getAvatarUrl(fig,pd.gender||"male");
+        const item=document.createElement("div");
+        item.className="wa-conv-item";
+        item.innerHTML=`<img class="wa-conv-avatar" src="${av}" onerror="this.style.background='#2a3942'">
+          <div class="wa-conv-info">
+            <div class="wa-conv-name">${otherName||"لاعب"}</div>
+            <div class="wa-conv-last">${conv.lastMsg||"ابدأ المحادثة"}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <div class="wa-conv-time">${conv.lastTime?timeAgo(conv.lastTime):""}</div>
+            ${unread>0?`<div class="wa-unread">${unread}</div>`:""}
+          </div>`;
+        item.onclick=(e)=>{e.stopPropagation();waOpenChat(otherUID,otherName||"لاعب");};
+        list.appendChild(item);
+      });
+    });
+  });
+}
+
+function waNewChat() {
+  const name=prompt("ادخل اسم اللاعب:");
+  if(!name||!name.trim()) return;
+  db.ref("players").orderByChild("name").equalTo(name.trim()).once("value").then(snap=>{
+    if(!snap.exists()){toast("اللاعب مش موجود","#dc3545");return;}
+    const uid=Object.keys(snap.val())[0];
+    if(uid===playerUID){toast("مش تقدر تراسل نفسك","#e67e00");return;}
+    waOpenChat(uid,name.trim());
+  });
+}
+
+function waOpenChat(targetUID, targetName) {
+  if(waMsgRef){waMsgRef.off();waMsgRef=null;}
+  waCurrentConvUID=targetUID;
+  waCurrentConvKey=getDMKey(playerUID,targetUID);
+  db.ref("dms/"+waCurrentConvKey+"/unread/"+playerUID).set(0);
+  db.ref("players/"+targetUID+"/online").once("value").then(s=>{
+    const online=s.val();
+    const pd=s.val();
+    db.ref("players/"+targetUID).once("value").then(ps=>{
+      const d=ps.val()||{};
+      const fig=d.figure||(d.gender==="female"?DEFAULT_FIGURE_FEMALE:DEFAULT_FIGURE_MALE);
+      const av=d.customAvatar||getAvatarUrl(fig,d.gender||"male");
+      const c=document.getElementById("waContent");
+      c.innerHTML=`
+        <div class="wa-header">
+          <button class="wa-header-back" onclick="event.stopPropagation();waShowList()">❮</button>
+          <img class="wa-conv-avatar" src="${av}" style="width:34px;height:34px;" onerror="this.style.background='#2a3942'">
+          <div style="flex:1;">
+            <div class="wa-header-title">${targetName}</div>
+            <div style="font-size:10px;color:${d.online?"#00a884":"#8696a0"};">${d.online?"online":"offline"}</div>
+          </div>
+        </div>
+        <div class="wa-chat-msgs" id="waChatMsgs"></div>
+        <form class="wa-chat-form" onsubmit="waSendMsg(event)">
+          <input class="wa-chat-input" id="waInput" placeholder="Message" autocomplete="off">
+          <button type="submit" class="wa-chat-send">➤</button>
+        </form>`;
+      const msgs=document.getElementById("waChatMsgs");
+      waMsgRef=db.ref("dms/"+waCurrentConvKey+"/messages").limitToLast(60);
+      waMsgRef.on("child_added",snap=>{
+        const d=snap.val();if(!d)return;
+        const isMine=d.senderUID===playerUID;
+        const el=document.createElement("div");
+        el.className="wa-msg "+(isMine?"mine":"theirs");
+        el.innerHTML=`<div class="wa-msg-bubble">${d.msg}</div><div class="wa-msg-time">${timeAgo(d.time)}</div>`;
+        msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
+      });
+      document.getElementById("waInput").focus();
+    });
+  });
+}
+
+function waSendMsg(e) {
+  e.preventDefault();
+  const input=document.getElementById("waInput");
+  const m=input.value.trim();
+  if(!m||!waCurrentConvUID||!waCurrentConvKey) return;
+  input.value="";
+  const convRef=db.ref("dms/"+waCurrentConvKey);
+  const msgId="m_"+Date.now();
+  const hdr=document.querySelector("#waContent .wa-header-title");
+  const headerName=hdr?hdr.textContent:"";
+  convRef.once("value").then(snap=>{
+    const ex=snap.val();
+    convRef.update({
+      p1:ex?ex.p1:playerUID, p2:ex?ex.p2:waCurrentConvUID,
+      name1:ex?ex.name1:playerName, name2:ex?ex.name2:headerName,
+      lastMsg:m.substring(0,40), lastTime:Date.now(),
+      ["unread/"+waCurrentConvUID]:((ex&&ex.unread&&ex.unread[waCurrentConvUID])||0)+1
+    });
+    db.ref("dms/"+waCurrentConvKey+"/messages/"+msgId).set({
+      senderUID:playerUID, senderName:playerName, msg:m, time:Date.now()
+    });
+    sendNotification(waCurrentConvUID,"dm",playerName);
+  });
 }
 
 // ====== WALLPAPER ======
