@@ -2002,21 +2002,26 @@ function waOpenChat(targetUID, targetName) {
 function waSendMsg(e) {
   e.preventDefault();
   const input=document.getElementById("waInput");
+  if(!input) return;
   const m=input.value.trim();
   if(!m||!waCurrentConvUID||!waCurrentConvKey) return;
   input.value="";
   const convRef=db.ref("dms/"+waCurrentConvKey);
   const msgId="m_"+Date.now();
-  const hdr=document.querySelector("#waContent .wa-header-title");
-  const headerName=hdr?hdr.textContent:"";
   convRef.once("value").then(snap=>{
     const ex=snap.val();
-    convRef.update({
-      p1:ex?ex.p1:playerUID, p2:ex?ex.p2:waCurrentConvUID,
-      name1:ex?ex.name1:playerName, name2:ex?ex.name2:headerName,
-      lastMsg:m.substring(0,40), lastTime:Date.now(),
-      ["unread/"+waCurrentConvUID]:((ex&&ex.unread&&ex.unread[waCurrentConvUID])||0)+1
-    });
+    const updates={
+      p1: ex ? ex.p1 : playerUID,
+      p2: ex ? ex.p2 : waCurrentConvUID,
+      name1: ex ? ex.name1 : playerName,
+      name2: ex ? ex.name2 : (document.querySelector("#waContent .wa-header-title")||{textContent:""}).textContent,
+      lastMsg: m.substring(0,40),
+      lastTime: Date.now()
+    };
+    updates["unread/"+waCurrentConvUID] = ((ex&&ex.unread&&ex.unread[waCurrentConvUID])||0)+1;
+    // تأكد مفيش undefined
+    Object.keys(updates).forEach(k=>{ if(updates[k]===undefined) delete updates[k]; });
+    convRef.update(updates);
     db.ref("dms/"+waCurrentConvKey+"/messages/"+msgId).set({
       senderUID:playerUID, senderName:playerName, msg:m, time:Date.now()
     });
