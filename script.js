@@ -1446,7 +1446,7 @@ function renderTrackList(tracks, containerId, sourceList) {
       </div>
       <div class="music-track-actions">
         <button onclick="event.stopPropagation();musicLikeTrack('${t.id}',this)" style="background:none;border:none;font-size:16px;cursor:pointer;">${liked?"❤️":"🤍"}</button>
-        <button onclick="event.stopPropagation();musicDeleteTrack('${t.id}')" style="background:none;border:none;color:#555;font-size:14px;cursor:pointer;">⋯</button>
+        <button onclick="event.stopPropagation();musicTrackMenu('${t.id}','${t.title.replace(/'/g,"\\'")}','${t.artist.replace(/'/g,"\\'")}',this)" style="background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:0 4px;">⋯</button>
       </div>`;
     div.onclick = (e) => { e.stopPropagation(); musicCurrentSource = sourceList; loadTrack(i, true, sourceList); };
     list.appendChild(div);
@@ -1535,6 +1535,42 @@ function musicDeleteTrack(trackId) {
   db.ref("players/"+playerUID+"/musicPlaylist/"+trackId).remove();
   toast("تم الحذف","#636e72");
   loadAllTracks();
+}
+
+function musicTrackMenu(trackId, currentTitle, currentArtist, btn) {
+  // شيل أي menu قديم
+  const old = document.getElementById("musicMenu");
+  if(old) { old.remove(); return; }
+  const menu = document.createElement("div");
+  menu.id = "musicMenu";
+  menu.style.cssText = "position:fixed;background:#282828;border-radius:10px;padding:6px 0;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.8);min-width:160px;";
+  const rect = btn.getBoundingClientRect();
+  menu.style.top = (rect.bottom+4)+"px";
+  menu.style.left = Math.max(10, rect.left-100)+"px";
+  const items = [
+    { icon:"✏️", label:"تعديل الاسم", action:()=>{
+      const n = prompt("اسم الأغنية:", currentTitle);
+      if(n&&n.trim()) db.ref("players/"+playerUID+"/musicPlaylist/"+trackId+"/title").set(n.trim());
+      loadAllTracks(); menu.remove();
+    }},
+    { icon:"🎤", label:"تعديل الفنان", action:()=>{
+      const a = prompt("اسم الفنان:", currentArtist);
+      if(a&&a.trim()) db.ref("players/"+playerUID+"/musicPlaylist/"+trackId+"/artist").set(a.trim());
+      loadAllTracks(); menu.remove();
+    }},
+    { icon:"🗑️", label:"حذف", action:()=>{ musicDeleteTrack(trackId); menu.remove(); }, color:"#f44336" },
+  ];
+  items.forEach(item => {
+    const el = document.createElement("div");
+    el.style.cssText = `padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:${item.color||"#fff"};`;
+    el.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
+    el.onmouseenter = () => el.style.background="#383838";
+    el.onmouseleave = () => el.style.background="transparent";
+    el.onclick = (e) => { e.stopPropagation(); item.action(); };
+    menu.appendChild(el);
+  });
+  document.body.appendChild(menu);
+  setTimeout(()=>{ document.addEventListener("click",()=>menu.remove(),{once:true}); },10);
 }
 
 // ====== PLAYER ======
