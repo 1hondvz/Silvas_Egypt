@@ -1905,6 +1905,39 @@ function getDMKey(uid1, uid2) { return [uid1,uid2].sort().join("_"); }
 
 function waInit() { waShowList(); }
 
+function waSendImage(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  if(!waCurrentConvUID || !waCurrentConvKey) { toast("افتح محادثة أولاً","#dc3545"); return; }
+  if(file.size > 5*1024*1024) { toast("الصورة كبيرة جداً! الحد 5MB","#dc3545"); return; }
+  toast("⏳ جاري رفع الصورة...","#00a884");
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const fd = new FormData();
+    fd.append('image', base64);
+    fetch('https://api.imgbb.com/1/upload?key='+IMGBB_KEY, {method:'POST', body:fd})
+      .then(r=>r.json()).then(data=>{
+        if(data.success) {
+          const msgId = "m_"+Date.now();
+          db.ref("dms/"+waCurrentConvKey+"/messages/"+msgId).set({
+            senderUID: playerUID, senderName: playerName,
+            msg: "", imgUrl: data.data.url, time: Date.now()
+          });
+          // حدّث metadata
+          db.ref("dms/"+waCurrentConvKey).update({
+            lastMsg: "📷 صورة", lastTime: Date.now(),
+            ["unread/"+waCurrentConvUID]: 1
+          });
+          sendNotification(waCurrentConvUID,"dm",playerName);
+          toast("✅ تم إرسال الصورة!","#00a884");
+        } else toast("فشل رفع الصورة","#dc3545");
+      }).catch(()=>toast("خطأ في الاتصال","#dc3545"));
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
 function waShowList() {
   if(waMsgRef) { waMsgRef.off(); waMsgRef=null; }
   waCurrentConvUID=null; waCurrentConvKey=null;
@@ -1982,6 +2015,10 @@ function waOpenChat(targetUID, targetName) {
       </div>
       <div class="wa-chat-msgs" id="waChatMsgs" style="flex:1;overflow-y:auto;padding:10px;background:#0b141a;"></div>
       <form class="wa-chat-form" onsubmit="waSendMsg(event)" style="flex-shrink:0;">
+        <label style="background:none;border:none;color:#8696a0;font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0;">
+          📎
+          <input type="file" accept="image/*" style="display:none" onchange="waSendImage(event)">
+        </label>
         <input class="wa-chat-input" id="waInput" placeholder="Message" autocomplete="off">
         <button type="submit" class="wa-chat-send">➤</button>
       </form>`;
@@ -1999,7 +2036,10 @@ function waOpenChat(targetUID, targetName) {
         db.ref("dms/"+waCurrentConvKey+"/messages/"+snap.key+"/seenBy/"+playerUID).set(true);
       }
       const ticks = isMine ? `<span class="wa-msg-ticks ${d.seenBy&&Object.keys(d.seenBy||{}).length>0?'seen':'sent'}">✓✓</span>` : "";
-      el.innerHTML=`<div class="wa-msg-bubble">${d.msg}<div class="wa-msg-footer"><span class="wa-msg-time">${timeAgo(d.time)}</span>${ticks}</div></div>`;
+      const content = d.imgUrl
+        ? `<img src="${d.imgUrl}" style="max-width:180px;max-height:180px;border-radius:8px;display:block;cursor:pointer;" onclick="openImgLightbox('${d.imgUrl}')">`
+        : d.msg;
+      el.innerHTML=`<div class="wa-msg-bubble">${content}<div class="wa-msg-footer"><span class="wa-msg-time">${timeAgo(d.time)}</span>${ticks}</div></div>`;
       msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;
     });
     // استمع لتغيير seenBy عشان تحدّث اللون
